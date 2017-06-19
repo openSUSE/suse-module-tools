@@ -1,0 +1,16 @@
+# begin of alpha part for modprobe.conf
+
+alias char-major-4        serial
+alias char-major-5        serial
+
+alias parport_lowlevel    parport_pc
+# disable DMA for parallel port (bnc#180390)
+# Please note, the dma= and irq= options require that the io= option also be
+# specified.
+options parport_pc dma=none
+# options parport_pc io=0x378 irq=none
+# If you have multiple parallel ports, specify them this way:
+# options parport_pc io=0x378,0x278  irq=none,none
+
+# end of alpha part for modprobe.conf
+

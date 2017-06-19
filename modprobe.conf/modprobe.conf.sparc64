@@ -1,0 +1,13 @@
+# begin of sparc64 part for modprobe.conf
+
+install char-major-4      /bin/true
+install char-major-5      /bin/true
+
+alias parport_lowlevel    parport_pc
+# disable DMA for parallel port (bnc#180390)
+# Please note, the dma= and irq= options require that the io= option also be
+# specified.
+options parport_pc dma=none
+
+# end of sparc64 part for modprobe.conf
+

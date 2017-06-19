@@ -1,0 +1,19 @@
+Please don't edit /etc/modprobe.conf. Place your settings into
+/etc/modprobe.conf.local instead.
+
+
+To avoid loading backup files of various tools and editors, modprobe skips
+files under /etc/modprobe.d/ that have the following prefixes
+
+"."
+"~"
+
+and the following suffixes
+
+".rpmsave"
+".rpmorig"
+".rpmnew"
+".bak"
+".YaST2save"
+".-"
+"~"

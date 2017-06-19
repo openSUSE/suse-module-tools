@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# Packages that install kernels or kernel-modules create a flag
+#
+#   /run/regenerate-initrd/<kernel image>
+# 
+# to have the initrd for <kernel image> generated, or
+#
+#   /run/regenerate-initrd/all
+#
+# to have all initrds generated. This script is called from posttrans
+# and takes care of generating the initrds
+
+shopt -s nullglob
+
+dir=/run/regenerate-initrd
+
+did_mkinitrd_setup=false
+run_mkinitrd_setup()
+{
+	if ! $did_mkinitrd_setup; then
+		if test -x /sbin/mkinitrd_setup; then
+			/sbin/mkinitrd_setup
+		fi
+		did_mkinitrd_setup=true
+	fi
+}
+
+
+if ! test -d "$dir"; then
+	exit 0
+fi
+for f in "$dir"/*; do
+	# check if we are in a build chroot
+	if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x /sbin/mkinitrd ] ; then
+		echo "Please run mkinitrd as soon as your system is complete." >&2
+		rm "$dir"/*
+		exit 0
+	fi
+	break
+done
+
+if test -e "$dir/all"; then
+	rm "$dir"/*
+	run_mkinitrd_setup
+	/sbin/mkinitrd
+	exit
+fi
+err=0
+for f in "$dir"/*; do
+	rm "$f"
+	image=${f##*/}
+	initrd=initrd-${image#*-}
+	if ! test -e "/boot/$image"; then
+		echo "$0: /boot/$image does not exist, initrd won't be generated"
+		continue
+	fi
+	run_mkinitrd_setup
+	if ! /sbin/mkinitrd -k "/boot/$image" -i "/boot/$initrd"; then
+		err=$?
+	fi
+done
+exit $err

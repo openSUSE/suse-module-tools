@@ -1,0 +1,15 @@
+# Packages installing files and binaries that end up in the initrd should
+# call these macros in their post(trans) scriptlets to have the initrd
+# regenerated
+# See also fate#313506
+
+%regenerate_initrd_post \
+	mkdir -p /run/regenerate-initrd/ \
+	touch /run/regenerate-initrd/all \
+	%nil
+
+%regenerate_initrd_posttrans \
+	if test -x /usr/lib/module-init-tools/regenerate-initrd-posttrans; then \
+		/bin/bash -${-/e/} /usr/lib/module-init-tools/regenerate-initrd-posttrans \
+	fi \
+	%nil

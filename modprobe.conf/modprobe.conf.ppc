@@ -1,0 +1,42 @@
+# begin of ppc part for modprobe.conf
+
+install char-major-4      /bin/true
+install char-major-5      /bin/true
+
+install char-major-9      /bin/true
+# alias char-major-9      st
+
+# 206 char        OnStream SC-x0 tape devices
+install char-major-206    /bin/true
+
+#  11 block       SCSI CD-ROM devices
+install block-major-11    /bin/true
+# alias block-major-11    sr_mod
+
+#  86 char        SCSI media changer
+install char-major-86     /bin/true
+
+# the "powerpc32 bash" triggers that one
+install personality-8     /bin/true
+
+# there are not soo many IDE controllers
+install block-major-88    /bin/true
+install block-major-89    /bin/true
+install block-major-90    /bin/true
+install block-major-91    /bin/true
+
+alias parport_lowlevel parport_pc
+# disable DMA for parallel port (bnc#180390)
+# Please note, the dma= and irq= options require that the io= option also be
+# specified.
+options parport_pc dma=none
+# options parport_pc io=0x3bc irq=none
+# If you have multiple parallel ports, specify them this way:
+# options parport_pc io=0x378,0x278  irq=none,none
+
+# firewire modules, spb2 is for FW drives and CD
+install ohci1394          { modprobe ieee1394; } ; /sbin/modprobe --ignore-install ohci1394
+install sbp2              { modprobe ohci1394; } ; /sbin/modprobe --ignore-install sbp2
+
+# end of ppc part for modprobe.conf
+

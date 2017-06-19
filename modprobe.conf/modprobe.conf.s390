@@ -1,0 +1,44 @@
+# begin of s390 part for modprobe.conf
+
+install char-major-4      /bin/true
+install char-major-5      /bin/true
+
+install net-pf-4          /bin/true
+install net-pf-5          /bin/true
+install net-pf-6          /bin/true
+install net-pf-11         /bin/true
+
+install tty-ldisc-11      /bin/true
+install tty-ldisc-5       /bin/true
+
+alias ctc0                ctc
+alias ctc1                ctc
+alias ctc2                ctc
+alias ctc3                ctc
+alias ctc4                ctc
+alias ctc5                ctc
+alias ctc6                ctc
+alias ctc7                ctc
+alias escon0              ctc
+alias escon1              ctc
+alias escon2              ctc
+alias escon3              ctc
+alias escon4              ctc
+alias escon5              ctc
+alias escon6              ctc
+alias escon7              ctc
+alias iucv0               netiucv
+alias iucv1               netiucv
+alias iucv2               netiucv
+alias iucv3               netiucv
+alias iucv4               netiucv
+alias iucv5               netiucv
+alias iucv6               netiucv
+alias iucv7               netiucv
+alias iucv8               netiucv
+alias iucv9               netiucv
+
+alias block-major-35 xpram
+
+# end of s390 part for modprobe.conf
+
