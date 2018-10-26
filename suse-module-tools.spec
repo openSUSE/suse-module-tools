@@ -25,12 +25,12 @@ Group:          System/Base
 Url:            https://github.com/openSUSE/suse-module-tools
 Source0:        %{name}-%{version}.tar.xz
 Requires:       /sbin/mkinitrd
-Requires:       findutils
-Requires:       gzip
-Requires:       kmod-compat
 Requires:       binutils
 Requires:       coreutils
+Requires:       findutils
 Requires:       grep
+Requires:       gzip
+Requires:       kmod-compat
 Requires:       rpm
 Requires:       sed
 
@@ -43,9 +43,10 @@ module-init-tools, whichever implementation you choose to install.
 %if 0%{?sle_version} >= 150000
 %if 0%{?is_opensuse} == 0
 %package we
-Summary:	Configuration module for Workstation Extension
-Requires:	%{name} >= %{version}
-Supplements:	kernel-default-extra
+Summary:        Configuration module for Workstation Extension
+Group:          System/Base
+Requires:       %{name} >= %{version}
+Supplements:    kernel-default-extra
 
 %description we
 This package contains a configuration file that allows loading
