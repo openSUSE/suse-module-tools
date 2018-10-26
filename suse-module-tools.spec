@@ -1,7 +1,7 @@
 #
 # spec file for package suse-module-tools
 #
-# Copyright (c) 2016 SUSE LINUX GmbH, Nuernberg, Germany.
+# Copyright (c) 2017 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -17,37 +17,26 @@
 
 
 Name:           suse-module-tools
-Version:        12.4
+Version:        15.0
 Release:        0
-Requires:       /sbin/depmod
-Requires:       /sbin/mkinitrd
-Requires:       findutils
-Requires:       gzip
-# for grepping /etc/SUSE-release
-PreReq:         grep
-# nm and rpmsort (rpm) are required by the weak-modules script which is invoked
-# in post, it also requires getopt (coreutils) and sed
-PreReq:         coreutils rpm
-# XXX: this should be nm OR eu-nm, the script works with both
-PreReq:         /usr/bin/eu-nm /bin/sed
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0+
 Group:          System/Base
-Source:         README.SUSE
-Source2:        modprobe.conf.tar.bz2
-Source3:        depmod-00-system.conf
-Source4:        10-unsupported-modules.conf
-Source5:        weak-modules
-Source6:        weak-modules2
-Source7:        driver-check.sh
-Source8:        suse-module-tools.rpmlintrc
-Source9:        modsign-verify
-Source10:       kmp-install
-Source11:       macros.initrd
-Source12:       regenerate-initrd-posttrans
-Source13:       50-kernel-uname_r.conf
-Source14:       modhash
-BuildRoot:      %{_tmppath}/%{name}-%{version}-build
+Url:            https://github.com/openSUSE/suse-module-tools
+Source0:        %{name}-%{version}.tar.xz
+Requires:       /sbin/mkinitrd
+Requires:       findutils
+Requires:       gzip
+Requires:       kmod-compat
+# could use eu-nm from elfutils too but it is higher in dep-chanin
+Requires(post): binutils
+# nm and rpmsort (rpm) are required by the weak-modules script which is invoked
+# in post, it also requires getopt (coreutils) and sed
+Requires(post): coreutils
+# for grepping /etc/os-release
+Requires(post): grep
+Requires(post): rpm
+Requires(post): sed
 
 %description
 This package contains helper scripts for KMP installation and
@@ -56,51 +45,46 @@ modprobe. These utilities are provided by kmod-compat or
 module-init-tools, whichever implementation you choose to install.
 
 %prep
-%setup -Tcqa2
+%setup -q
 
 %build
+:
 
 %install
-b="%buildroot"
-mkdir -p "$b/%_docdir/module-init-tools"
-install -pm644 "%_sourcedir/README.SUSE" "$b/%_docdir/module-init-tools" 
-#
 # now assemble the parts for modprobe.conf
-#
-cd modprobe.conf
-cp modprobe.conf.common 00-system.conf
-if [ -f "modprobe.conf.$RPM_ARCH" ]; then
-	cat "modprobe.conf.$RPM_ARCH" >>00-system.conf
+cp modprobe.conf/modprobe.conf.common 00-system.conf
+if [ -f "modprobe.conf/modprobe.conf.$RPM_ARCH" ]; then
+	cat "modprobe.conf/modprobe.conf.$RPM_ARCH" >>00-system.conf
 fi
-install -d -m 755 "$b/etc/modprobe.d"
-install -pm644 "%_sourcedir/10-unsupported-modules.conf" \
-	"$b/etc/modprobe.d/"
-install -pm644 00-system.conf "$b/etc/modprobe.d/"
-install -pm644 modprobe.conf.local "$b/etc/modprobe.d/99-local.conf"
-install -d -m 755 "$b/etc/depmod.d"
-install -pm 644 "%_sourcedir/depmod-00-system.conf" \
-	"$b/etc/depmod.d/00-system.conf"
+install -d -m 755 "%{buildroot}%{_sysconfdir}/modprobe.d"
+install -pm644 "10-unsupported-modules.conf" \
+	"%{buildroot}%{_sysconfdir}/modprobe.d/"
+install -pm644 00-system.conf "%{buildroot}%{_sysconfdir}/modprobe.d/"
+install -pm644 modprobe.conf/modprobe.conf.local "%{buildroot}%{_sysconfdir}/modprobe.d/99-local.conf"
+install -d -m 755 "%{buildroot}%{_sysconfdir}/depmod.d"
+install -pm 644 "depmod-00-system.conf" \
+	"%{buildroot}%{_sysconfdir}/depmod.d/00-system.conf"
 
 # "module-init-tools" name hardcoded in KMPs, mkinitrd, etc.
-install -d -m 755 "$b/usr/lib/module-init-tools"
-install -pm 755 %_sourcedir/weak-modules{,2} "$b/usr/lib/module-init-tools/"
-install -pm 755 %_sourcedir/driver-check.sh "$b/usr/lib/module-init-tools/"
+install -d -m 755 "%{buildroot}%{_libexecdir}/module-init-tools"
+install -pm 755 weak-modules{,2} "%{buildroot}%{_libexecdir}/module-init-tools/"
+install -pm 755 driver-check.sh "%{buildroot}%{_libexecdir}/module-init-tools/"
 
 # rpm macros and helper
-install -d -m 755 "$b/etc/rpm"
-install -pm 644 "%_sourcedir/macros.initrd" "$b/etc/rpm/"
-install -pm 755 "%_sourcedir/regenerate-initrd-posttrans" "$b/usr/lib/module-init-tools/"
+install -d -m 755 "%{buildroot}%{_sysconfdir}/rpm"
+install -pm 644 "macros.initrd" "%{buildroot}%{_sysconfdir}/rpm/"
+install -pm 755 "regenerate-initrd-posttrans" "%{buildroot}%{_libexecdir}/module-init-tools/"
 
 # modsign-verify for verifying module signatures
-install -d -m 755 "$b/usr/bin"
-install -pm 755 %_sourcedir/modsign-verify "$b/usr/bin/"
-install -pm 755 %_sourcedir/kmp-install "$b/usr/bin/"
+install -d -m 755 "%{buildroot}%{_prefix}/bin"
+install -pm 755 modsign-verify "%{buildroot}%{_bindir}/"
+install -pm 755 kmp-install "%{buildroot}%{_bindir}/"
 # modhash for calculating hash of signed kernel module
-install -pm 755 %_sourcedir/modhash "$b/usr/bin/"
+install -pm 755 modhash "%{buildroot}%{_bindir}/"
 
 # systemd service to load /boot/sysctl.conf-`uname -r`
-install -d -m 755 "$b/usr/lib/systemd/system/systemd-sysctl.service.d"
-install -pm 644 %_sourcedir/50-kernel-uname_r.conf "$b/usr/lib/systemd/system/systemd-sysctl.service.d"
+install -d -m 755 "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
+install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
 
 %post
 test_allow_on_install()
@@ -110,20 +94,20 @@ test_allow_on_install()
 	allow=1
 	# if the obsolete LOAD_UNSUPPORTED_MODULES_AUTOMATICALLY variable is
 	# set to no, don't allow (this was used in SLES 9 and 10)
-	if test -e /etc/sysconfig/hardware/config; then
-		. /etc/sysconfig/hardware/config
+	if test -e %{_sysconfdir}/sysconfig/hardware/config; then
+		. %{_sysconfdir}/sysconfig/hardware/config
 		if test "x$LOAD_UNSUPPORTED_MODULES_AUTOMATICALLY" = "xno"; then
 			allow=0
 		fi
 		# obsolete
-		rm /etc/sysconfig/hardware/config
+		rm %{_sysconfdir}/sysconfig/hardware/config
 	fi
 	# don't change the setting during upgrade
 	if test "$1" != 1; then
 		return
 	fi
 	# on SLES, the default is not to allow unsupported modules
-	if grep -qs "Enterprise Server" /etc/SuSE-release; then
+	if grep -qs "Enterprise Server" %{_sysconfdir}/os-release; then
 		allow=0
 	else
 		return
@@ -134,7 +118,7 @@ test_allow_on_install()
 		return
 	fi
 	# or if the installer already loaded some unsupported modules
-	# (see TAINT_NO_SUPPORT in /usr/src/linux/include/linux/kernel.h)
+	# (see TAINT_NO_SUPPORT in %{_prefix}/src/linux/include/linux/kernel.h)
 	tainted=$(cat /proc/sys/kernel/tainted 2>/dev/null || echo 0)
 	if test $((tainted & (1<<30))) != 0; then
 		allow=1
@@ -142,34 +126,34 @@ test_allow_on_install()
 	fi
 }
 # upgrade from old locations
-if test -e /etc/modprobe.d/unsupported-modules; then
-	mv -f /etc/modprobe.d/unsupported-modules \
-		/etc/modprobe.d/10-unsupported-modules.conf
+if test -e %{_sysconfdir}/modprobe.d/unsupported-modules; then
+	mv -f %{_sysconfdir}/modprobe.d/unsupported-modules \
+		%{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
 fi
-if test -e /etc/modprobe.conf.local; then
-	mv -f /etc/modprobe.conf.local \
-		/etc/modprobe.d/99-local.conf
+if test -e %{_sysconfdir}/modprobe.conf.local; then
+	mv -f %{_sysconfdir}/modprobe.conf.local \
+		%{_sysconfdir}/modprobe.d/99-local.conf
 fi
 test_allow_on_install "$@"
 if test "$allow" = "0"; then
 	sed -ri 's/^( *allow_unsupported_modules *) 1/\1 0/' \
-		/etc/modprobe.d/10-unsupported-modules.conf
+		%{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
 fi
 
 %files
 %defattr(-,root,root)
-%dir               /etc/modprobe.d
-%config            /etc/modprobe.d/00-system.conf
-%config(noreplace) /etc/modprobe.d/10-unsupported-modules.conf
-%config(noreplace) /etc/modprobe.d/99-local.conf
-%dir               /etc/depmod.d
-%config            /etc/depmod.d/00-system.conf
-%config /etc/rpm/macros.initrd
-%_docdir/module-init-tools
-/usr/bin/modhash
-/usr/bin/kmp-install
-/usr/bin/modsign-verify
-/usr/lib/module-init-tools
-/usr/lib/systemd/system/systemd-sysctl.service.d
+%doc LICENSE README.SUSE
+%dir %{_sysconfdir}/modprobe.d
+%config %{_sysconfdir}/modprobe.d/00-system.conf
+%config(noreplace) %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
+%config(noreplace) %{_sysconfdir}/modprobe.d/99-local.conf
+%dir %{_sysconfdir}/depmod.d
+%config %{_sysconfdir}/depmod.d/00-system.conf
+%config %{_sysconfdir}/rpm/macros.initrd
+%{_bindir}/modhash
+%{_bindir}/kmp-install
+%{_bindir}/modsign-verify
+%{_libexecdir}/module-init-tools
+%{_libexecdir}/systemd/system/systemd-sysctl.service.d
 
 %changelog
