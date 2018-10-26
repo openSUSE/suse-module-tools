@@ -1,7 +1,7 @@
 #
 # spec file for package suse-module-tools
 #
-# Copyright (c) 2017 SUSE LINUX GmbH, Nuernberg, Germany.
+# Copyright (c) 2018 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -12,7 +12,7 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-# Please submit bugfixes or comments via http://bugs.opensuse.org/
+# Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
 
@@ -20,7 +20,7 @@ Name:           suse-module-tools
 Version:        15.0
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
-License:        GPL-2.0+
+License:        GPL-2.0-or-later
 Group:          System/Base
 Url:            https://github.com/openSUSE/suse-module-tools
 Source0:        %{name}-%{version}.tar.xz
