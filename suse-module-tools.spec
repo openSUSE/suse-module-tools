@@ -40,6 +40,22 @@ uninstallation, as well as default configuration files for depmod and
 modprobe. These utilities are provided by kmod-compat or
 module-init-tools, whichever implementation you choose to install.
 
+%if 0%{?sle_version} >= 150000
+%if 0%{?is_opensuse} == 0
+%package we
+Summary:	Configuration module for Workstation Extension
+Requires:	%{name} >= %{version}
+Supplements:	kernel-default-extra
+
+%description we
+This package contains a configuration file that allows loading
+unsupported kernel modules. This is necessary to load modules
+from the kernel-default-extra package from the SUSE Linux Enterprise
+Workstation Extension module.
+
+%endif
+%endif
+
 %prep
 %setup -q
 
@@ -55,6 +71,15 @@ fi
 install -d -m 755 "%{buildroot}%{_sysconfdir}/modprobe.d"
 install -pm644 "10-unsupported-modules.conf" \
 	"%{buildroot}%{_sysconfdir}/modprobe.d/"
+%if 0%{?sle_version} >= 150000
+%if 0%{?is_opensuse} == 0
+cat >"%{buildroot}%{_sysconfdir}/modprobe.d/20-unsupported-modules-we.conf" <<EOF
+# This overrides the default from 10-unsupported-modules.conf
+# Necessary to load modules from kernel-default-extra
+allow_unsupported_modules 1
+EOF
+%endif
+%endif
 install -pm644 00-system.conf "%{buildroot}%{_sysconfdir}/modprobe.d/"
 install -pm644 modprobe.conf/modprobe.conf.local "%{buildroot}%{_sysconfdir}/modprobe.d/99-local.conf"
 install -d -m 755 "%{buildroot}%{_sysconfdir}/depmod.d"
@@ -83,6 +108,19 @@ install -d -m 755 "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.serv
 install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
 
 %post
+%if 0%{?sle_version} >= 150000
+# Delete obsolete unsupported-modules file from SLE11
+rm -f %{_sysconfdir}/modprobe.d/unsupported-modules
+%if 0%{?is_opensuse} == 1
+# Disallowing unsupported modules on openSUSE is pointless.
+allow=1
+%else
+# On SLE15, unsupported modules are disallowed unless the WE
+# module is installed. We deliberately reset this on update.
+allow=0
+%endif
+%else
+# Logic for releases below CODE 15
 test_allow_on_install()
 {
 	# configure handling of unsupported modules
@@ -126,14 +164,17 @@ if test -e %{_sysconfdir}/modprobe.d/unsupported-modules; then
 	mv -f %{_sysconfdir}/modprobe.d/unsupported-modules \
 		%{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
 fi
-if test -e %{_sysconfdir}/modprobe.conf.local; then
-	mv -f %{_sysconfdir}/modprobe.conf.local \
-		%{_sysconfdir}/modprobe.d/99-local.conf
-fi
 test_allow_on_install "$@"
+%endif
 if test "$allow" = "0"; then
 	sed -ri 's/^( *allow_unsupported_modules *) 1/\1 0/' \
 		%{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
+fi
+
+# upgrade from old locations
+if test -e %{_sysconfdir}/modprobe.conf.local; then
+	mv -f %{_sysconfdir}/modprobe.conf.local \
+		%{_sysconfdir}/modprobe.d/99-local.conf
 fi
 
 %files
@@ -142,7 +183,11 @@ fi
 %doc README.SUSE
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/00-system.conf
+%if 0%{?sle_version} >= 150000
+%config %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
+%else
 %config(noreplace) %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
+%endif
 %config(noreplace) %{_sysconfdir}/modprobe.d/99-local.conf
 %dir %{_sysconfdir}/depmod.d
 %config %{_sysconfdir}/depmod.d/00-system.conf
@@ -152,5 +197,13 @@ fi
 %{_bindir}/modsign-verify
 %{_libexecdir}/module-init-tools
 %{_libexecdir}/systemd/system/systemd-sysctl.service.d
+
+%if 0%{?sle_version} >= 150000
+%if 0%{?is_opensuse} == 0
+%files we
+%defattr(-,root,root)
+%config /etc/modprobe.d/20-unsupported-modules-we.conf
+%endif
+%endif
 
 %changelog
