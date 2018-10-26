@@ -114,7 +114,7 @@ test_allow_on_install()
 		return
 	fi
 	# or if the installer already loaded some unsupported modules
-	# (see TAINT_NO_SUPPORT in %{_prefix}/src/linux/include/linux/kernel.h)
+	# (see TAINT_NO_SUPPORT in /etc/src/linux/include/linux/kernel.h)
 	tainted=$(cat /proc/sys/kernel/tainted 2>/dev/null || echo 0)
 	if test $((tainted & (1<<30))) != 0; then
 		allow=1
