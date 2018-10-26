@@ -108,6 +108,10 @@ install -pm 755 modhash "%{buildroot}%{_bindir}/"
 install -d -m 755 "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
 install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
 
+# udev rule to load sg if necessary, and after type-specific driver
+install -d -m 755 "%{buildroot}%{_libexecdir}/udev/rules.d"
+install -pm 644 81-sg.rules "%{buildroot}%{_libexecdir}/udev/rules.d"
+
 %post
 %if 0%{?sle_version} >= 150000
 # Delete obsolete unsupported-modules file from SLE11
@@ -198,6 +202,8 @@ fi
 %{_bindir}/modsign-verify
 %{_libexecdir}/module-init-tools
 %{_libexecdir}/systemd/system/systemd-sysctl.service.d
+%dir %{_libexecdir}/udev/rules.d
+%{_libexecdir}/udev/rules.d/81-sg.rules
 
 %if 0%{?sle_version} >= 150000
 %if 0%{?is_opensuse} == 0
