@@ -138,7 +138,8 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc LICENSE README.SUSE
+%license LICENSE
+%doc README.SUSE
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/00-system.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
