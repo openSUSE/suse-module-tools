@@ -28,15 +28,11 @@ Requires:       /sbin/mkinitrd
 Requires:       findutils
 Requires:       gzip
 Requires:       kmod-compat
-# could use eu-nm from elfutils too but it is higher in dep-chanin
-Requires(post): binutils
-# nm and rpmsort (rpm) are required by the weak-modules script which is invoked
-# in post, it also requires getopt (coreutils) and sed
-Requires(post): coreutils
-# for grepping /etc/os-release
-Requires(post): grep
-Requires(post): rpm
-Requires(post): sed
+Requires:       binutils
+Requires:       coreutils
+Requires:       grep
+Requires:       rpm
+Requires:       sed
 
 %description
 This package contains helper scripts for KMP installation and
