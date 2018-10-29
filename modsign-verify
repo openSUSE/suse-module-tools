@@ -258,6 +258,25 @@ sub hash_prologue($@)
     return $head . $seq . $tail;
 }
 
+sub find_hash_algo_by_oid($)
+{
+    my ($oid) = @_;
+    my $key;
+    my $k;
+
+  SEARCH:
+    foreach $k (keys %hash_algos) {
+	    my ($_h, $_n, @_a) =  @{$hash_algos{$k}};
+	    if ($oid eq pack("C*", @_a)) {
+		    $key = $k;
+		    last SEARCH;
+	    }
+    }
+    die "$module_name: unsupported hash algorithm OID=".sprintf("%v02x", $oid)
+        if !defined($key);
+    return $key;
+}
+
 #
 # Function to read the contents of a file into a variable.
 #
