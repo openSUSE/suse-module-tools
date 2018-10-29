@@ -84,7 +84,7 @@ if ($cert) {
 ## ASN.1 code copied from kernel-sign-file
 ###############################################################################
 
-my $x509_certificate = read_file($x509);
+my $x509;
 
 my $UNIV = 0 << 6;
 my $APPL = 1 << 6;
@@ -126,6 +126,7 @@ my %OIDs = (
 # Extract an ASN.1 element from a string and return information about it.
 #
 ###############################################################################
+my $ASN1_EXTRACT_MSG = "asn1_extract";
 sub asn1_extract($$@)
 {
     my ($cursor, $expected_tag, $optional) = @_;
@@ -133,7 +134,8 @@ sub asn1_extract($$@)
     return [ -1 ]
 	if ($cursor->[1] == 0 && $optional);
 
-    die $x509, ": ", $cursor->[0], ": ASN.1 data underrun (elem ", $cursor->[1], ")\n"
+    die $ASN1_EXTRACT_MSG, ": ", $cursor->[0],
+	": ASN.1 data underrun (elem ", $cursor->[1], ")\n"
 	if ($cursor->[1] < 2);
 
     my ($tag, $len) = unpack("CC", substr(${$cursor->[2]}, $cursor->[0], 2));
@@ -141,21 +143,21 @@ sub asn1_extract($$@)
     if ($expected_tag != -1 && $tag != $expected_tag) {
 	return [ -1 ]
 	    if ($optional);
-	die $x509, ": ", $cursor->[0], ": ASN.1 unexpected tag (", $tag,
-	" not ", $expected_tag, ")\n";
+	die $ASN1_EXTRACT_MSG, ": ", $cursor->[0],
+	    ": ASN.1 unexpected tag (", $tag, " not ", $expected_tag, ")\n";
     }
 
     $cursor->[0] += 2;
     $cursor->[1] -= 2;
 
-    die $x509, ": ", $cursor->[0], ": ASN.1 long tag\n"
+    die $ASN1_EXTRACT_MSG, ": ", $cursor->[0], ": ASN.1 long tag\n"
 	if (($tag & 0x1f) == 0x1f);
-    die $x509, ": ", $cursor->[0], ": ASN.1 indefinite length\n"
+    die $ASN1_EXTRACT_MSG, ": ", $cursor->[0], ": ASN.1 indefinite length\n"
 	if ($len == 0x80);
 
     if ($len > 0x80) {
 	my $l = $len - 0x80;
-	die $x509, ": ", $cursor->[0], ": ASN.1 data underrun (len len $l)\n"
+	die $ASN1_EXTRACT_MSG, ": ", $cursor->[0], ": ASN.1 data underrun (len len $l)\n"
 	    if ($cursor->[1] < $l);
 
 	if ($l == 0x1) {
@@ -168,14 +170,16 @@ sub asn1_extract($$@)
 	} elsif ($l == 0x4) {
 	    $len = unpack("N", substr(${$cursor->[2]}, $cursor->[0], 4));
 	} else {
-	    die $x509, ": ", $cursor->[0], ": ASN.1 element too long (", $l, ")\n";
+		die $ASN1_EXTRACT_MSG, ": ", $cursor->[0],
+		    ": ASN.1 element too long (", $l, ")\n";
 	}
 
 	$cursor->[0] += $l;
 	$cursor->[1] -= $l;
     }
 
-    die $x509, ": ", $cursor->[0], ": ASN.1 data underrun (", $len, ")\n"
+    die $ASN1_EXTRACT_MSG, ": ", $cursor->[0],
+	": ASN.1 data underrun (", $len, ")\n"
 	if ($cursor->[1] < $len);
 
     my $ret = [ $tag, [ $cursor->[0], $len, $cursor->[2] ] ];
@@ -387,7 +391,7 @@ if ($id_type == 1) {
 	}
 } elsif ($id_type == 2) {
 	# PKCS7 signature
-	$x509 = $module_name; # for errmsg
+	$ASN1_EXTRACT_MSG = $module_name;
 	my $cursor = [ 0, length($signature), \$signature ];
 	my $seq0 = asn1_extract($cursor, $UNIV|$CONS|$SEQUENCE);
 	my $signed_data = asn1_extract($seq0->[1], $UNIV|$OBJ_ID);
