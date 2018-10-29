@@ -205,7 +205,31 @@ sub asn1_pack($@)
     return pack("CCa*", $tag, $ll | 0x80,  substr(pack("N", $l), -$ll)) . $data;
 }
 
+# OID 1.3.14.3.2.26
+# iso.identified-organization.oiw.secsig.algorithms
+my @ALGO_OID = (0x2B, 0x0E, 0x03, 0x02);
+# OID 2.16.840.1.101.3.4.2
+# joint-isu-itu-t.country.usa.organization.gov.iosp.nist_algorithm
+my @NIST_ALGO_OID = (0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02);
 
+my %hash_algos = (
+	2 => ["sha1", 160/8, @ALGO_OID, 26],
+	4 => ["sha256", 256/8, @NIST_ALGO_OID, 1],
+	5 => ["sha384", 384/8, @NIST_ALGO_OID, 2],
+	6 => ["sha512", 512/8, @NIST_ALGO_OID, 3],
+	7 => ["sha224", 224/8, @NIST_ALGO_OID, 4],
+);
+
+sub hash_prologue($@)
+{
+    my ($hash_len, @algo) = @_;
+    my $obj = asn1_pack($UNIV | $OBJ_ID, pack("C*", @algo));
+    my $seq = asn1_pack($UNIV | $CONS | $SEQUENCE, $obj . pack("CC", $NULL, 0));
+    my $tail = pack("CC", $OCTET_STRING, $hash_len);
+    my $head = pack("CC", $UNIV | $CONS | $SEQUENCE,
+		    length($seq) + length($tail) + $hash_len);
+    return $head . $seq . $tail;
+}
 
 #
 # Function to read the contents of a file into a variable.
@@ -313,40 +337,11 @@ if ($algo != 1) {
 #
 # Digest the data
 #
-my ($prologue, $dgst);
-if ($hash == 2) {
-    $prologue = pack("C*",
-		     0x30, 0x21, 0x30, 0x09, 0x06, 0x05,
-		     0x2B, 0x0E, 0x03, 0x02, 0x1A,
-		     0x05, 0x00, 0x04, 0x14);
-    $dgst = "sha1";
-} elsif ($hash == 7) {
-    $prologue = pack("C*",
-		     0x30, 0x2d, 0x30, 0x0d, 0x06, 0x09,
-		     0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04,
-		     0x05, 0x00, 0x04, 0x1C);
-    $dgst = "sha224";
-} elsif ($hash == 4) {
-    $prologue = pack("C*",
-		     0x30, 0x31, 0x30, 0x0d, 0x06, 0x09,
-		     0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01,
-		     0x05, 0x00, 0x04, 0x20);
-    $dgst = "sha256";
-} elsif ($hash == 5) {
-    $prologue = pack("C*",
-		     0x30, 0x41, 0x30, 0x0d, 0x06, 0x09,
-		     0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02,
-		     0x05, 0x00, 0x04, 0x30);
-    $dgst = "sha384";
-} elsif ($hash == 6) {
-    $prologue = pack("C*",
-		     0x30, 0x51, 0x30, 0x0d, 0x06, 0x09,
-		     0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03,
-		     0x05, 0x00, 0x04, 0x40);
-    $dgst = "sha512";
-} else {
-    die "Unsupported hash algorithm\n";
-}
+my ($prologue, $hash_len, $dgst, @oid);
+die "Unsupported hash algorithm\n" if not exists $hash_algos{$hash};
+
+($dgst, $hash_len, @oid) = @{$hash_algos{$hash}};
+$prologue = hash_prologue($hash_len, @oid);
 
 verbose("Signed by: $name\n");
 verbose("Key id: " . unpack("H*", $key_id) . "\n");
