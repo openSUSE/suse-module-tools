@@ -12,6 +12,7 @@ use warnings;
 use IPC::Open2;
 use Getopt::Long;
 use File::Temp qw(tempfile);
+use bigint;
 
 my $cert;
 my $cert_dir;
@@ -193,6 +194,29 @@ sub asn1_retrieve($)
     return substr($$data, $offset, $len);
 }
 
+
+# 2's complement representation of ASN1_INTEGER
+sub asn1_int($)
+{
+    my ($p) = @_;
+    my @bytes = unpack("C*", $p);
+    my $byte;
+    my $neg = 0;
+    my $v = 0;
+
+    if (($bytes[0] & 0x80) != 0) {
+	    $neg = 1;
+	    $bytes[0] &= ~0x80;
+    }
+    foreach $byte (@bytes) {
+	    $v <<= 8;
+	    $v += $byte;
+    }
+    if ($neg) {
+	    $v -= (2 ** (8 * scalar(@bytes) - 1));
+    };
+    return $v;
+}
 
 sub asn1_pack($@)
 {
