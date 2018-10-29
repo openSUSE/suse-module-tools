@@ -370,16 +370,98 @@ my $info = eat($info_len);
 my ($algo, $hash, $id_type, $name_len, $key_len, $sig_len) =
 	unpack("CCCCCxxxN", $info);
 my $signature = eat($sig_len);
-if (unpack("n", $signature) != $sig_len - 2) {
-	die "Invalid signature format\n";
-}
-$signature = substr($signature, 2);
-my $key_id = eat($key_len);
-my $name = eat($name_len);
 
-if ($algo != 1) {
-	die "Unsupported signature algorithm\n";
-}
+my $key_id;
+my $name;
+if ($id_type == 1) {
+
+	if (unpack("n", $signature) != $sig_len - 2) {
+		die "Invalid signature format\n";
+	}
+	$signature = substr($signature, 2);
+	$key_id = eat($key_len);
+	$name = eat($name_len);
+
+	if ($algo != 1) {
+		die "Unsupported signature algorithm\n";
+	}
+} elsif ($id_type == 2) {
+	# PKCS7 signature
+	$x509 = $module_name; # for errmsg
+	my $cursor = [ 0, length($signature), \$signature ];
+	my $seq0 = asn1_extract($cursor, $UNIV|$CONS|$SEQUENCE);
+	my $signed_data = asn1_extract($seq0->[1], $UNIV|$OBJ_ID);
+	die "$module_name: no PKCS#7 signed_data structure\n"
+	    if $OIDs{asn1_retrieve($signed_data->[1])} !~ /^pkcs7-signed-data$/;
+
+	my $ctx1 = asn1_extract($seq0->[1], $UNIV | $CONT | $CONS);
+	my $seq1 = asn1_extract($ctx1->[1], $UNIV | $CONS | $SEQUENCE);
+	my $sig_version = asn1_extract($seq1->[1], $UNIV | $INTEGER);
+
+	my $digest_algo_seq_set = asn1_extract($seq1->[1],
+					       $UNIV | $CONS | $SET);
+	my $digest_algo_seq = asn1_extract($digest_algo_seq_set->[1],
+					   $UNIV | $CONS | $SEQUENCE);
+	my $digest_algo = asn1_extract($digest_algo_seq->[1], $UNIV | $OBJ_ID);
+	$hash = find_hash_algo_by_oid(asn1_retrieve($digest_algo->[1]));
+
+	my $seq2 = asn1_extract($seq1->[1], $UNIV | $CONS | $SEQUENCE);
+	my $pkcs7_data = asn1_extract($seq2->[1], $UNIV | $OBJ_ID);
+	die "$module_name: invalid PKCS#7 data"
+	    if $OIDs{asn1_retrieve($pkcs7_data->[1])} !~ /^pkcs7-data$/;
+
+	my $si_set = asn1_extract($seq1->[1], $UNIV | $CONS | $SET);
+	my $si_seq = asn1_extract($si_set->[1], $UNIV | $CONS | $SEQUENCE);
+	my $si_version = asn1_extract($si_seq->[1], $UNIV | $INTEGER);
+
+	my $_key_id = asn1_extract($si_seq->[1], -1);
+	my $key_id;
+
+	if ($_key_id->[0] == ($CONT | 0)) {
+		# key_id: kernel-sign-file -k
+		$key_id  = asn1_extract($_key_id->[1], $CONT | 0);
+		$name = $key_id;
+	} else {
+		# issuer / serial
+		my $issuer = asn1_extract($_key_id->[1],
+					  $UNIV | $CONS | $SEQUENCE);
+		my $_serial = asn1_extract($_key_id->[1], $UNIV | $INTEGER);
+		my $serial = asn1_int(asn1_retrieve($_serial->[1]));
+		my $cn;
+	      CN:
+		while ($issuer->[1][1] > 0) {
+			my $_set = asn1_extract($issuer->[1],
+						$UNIV | $CONS | $SET);
+			my $_seq = asn1_extract($_set->[1],
+						$UNIV | $CONS | $SEQUENCE);
+			my $_oid = asn1_extract($_seq->[1], $UNIV | $OBJ_ID);
+			my $_x = asn1_retrieve($_oid->[1]);
+			if ($OIDs{asn1_retrieve($_oid->[1])} eq "commonName") {
+				my $_cn = asn1_extract($_seq->[1], -1);
+				$cn = asn1_retrieve($_cn->[1]);
+				last CN;
+			}
+	        }
+		die "$module_name: unable to determine CN"
+		  if !defined($cn);
+		$name="$cn:$serial";
+		$key_id = $name;
+	}
+
+	my $seq4 = asn1_extract($si_seq->[1], $UNIV | $CONS | $SEQUENCE);
+	my $digest2 = asn1_extract($seq4->[1], $UNIV | $OBJ_ID);
+	my $hash2 = find_hash_algo_by_oid(asn1_retrieve($digest2->[1]));
+	die "$module_name: inconsistent hash" if $hash2 != $hash;
+
+	my $seq5 = asn1_extract($si_seq->[1], $UNIV | $CONS | $SEQUENCE);
+	my $enc = asn1_extract($seq5->[1], $UNIV | $OBJ_ID);
+	die "$module_name: invalid encryption type".
+	    sprintf("%v02x", asn1_retrieve($enc->[1]))
+	    if $OIDs{asn1_retrieve($enc->[1])} ne "rsaEncryption";
+	my $_sig = asn1_extract($si_seq->[1], $UNIV | $OCTET_STRING);
+	$signature = asn1_retrieve($_sig->[1]);
+};
+
 #
 # Digest the data
 #
