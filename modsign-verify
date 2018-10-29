@@ -115,7 +115,10 @@ my %OIDs = (
     pack("CCCCCCCCC", 42, 134, 72, 134, 247, 13, 1, 9, 1) => "emailAddress",
     pack("CCC", 85, 29, 35)	=> "authorityKeyIdentifier",
     pack("CCC", 85, 29, 14)	=> "subjectKeyIdentifier",
-    pack("CCC", 85, 29, 19)	=> "basicConstraints"
+    pack("CCC", 85, 29, 19)	=> "basicConstraints",
+    # PKCS#7 OID: 1.2.840.113549.1 (iso.member-body.usa.rsadsi.pkcs)
+    pack("CCCCCCCCC", 42, 134, 72, 134, 247, 13, 1, 7, 1) => "pkcs7-data",
+    pack("CCCCCCCCC", 42, 134, 72, 134, 247, 13, 1, 7, 2) => "pkcs7-signed-data",
 );
 
 ###############################################################################
