@@ -404,32 +404,35 @@ sub openssl_pipe($$) {
 	return $res;
 }
 
-sub cert_matches {
-	my ($cert, $subject_key_id, $subject_name) = @_;
+sub cert_matches($$$$) {
+	my ($cert, $subject_key_id, $issuer, $serial) = @_;
+	my $bytes = read_file($cert);
 
-	open(my $pipe, '-|', "openssl", "x509", "-noout", "-text",
-		"-inform", "DER", "-in", $cert) or die "openssl x509: $!\n";
-	my $found = 0;
-	my $found_key_id;
-	while (<$pipe>) {
-		chomp;
-		if (/^\s*X509v3 Subject Key Identifier:/) {
-			$found = 1;
-			next;
-		}
-		if ($found) {
-			s/[\s:]*//g;
-			$found_key_id = pack("H*", $_);
-			last;
-		}
+	$ASN1_EXTRACT_MSG = $cert;
+	my $cert_props = parse_x509_der($bytes);
+
+	if (defined($subject_key_id)) {
+		debug("$cert has key id " .
+		      unpack("H*", $cert_props->{"subject_key_id"}) . "\n");
+		return ($cert_props->{"subject_key_id"} eq $subject_key_id);
 	}
-	if (!$found_key_id) {
-		print STDERR "Warning: no subject key identifier in $cert\n";
+
+	die "missing input data in cert_matches()"
+	    if (!defined($issuer) || !defined($serial));
+
+	if (!defined($cert_props->{"serial"}) ||
+	    $cert_props->{"serial"} ne $serial) {
+		verbose "$cert: serial number mismatch: $serial != ". $cert_props->{"serial"}."\n";
 		return 0;
 	}
-	debug("$cert has hey id " . unpack("H*", $found_key_id));
-	# FIXME: Also check subject_name
-	return ($found_key_id eq $subject_key_id);
+	foreach my $k (keys(%$issuer)) {
+		if (!defined($cert_props->{$k}) ||
+			     $issuer->{$k} ne $cert_props->{$k}) {
+			verbose "$cert: $k does not match signature\n";
+			return 0;
+		}
+	}
+	return 1;
 }
 
 my $module = read_file($module_name);
@@ -458,7 +461,9 @@ my $info = eat($info_len);
 my ($algo, $hash, $id_type, $name_len, $key_len, $sig_len) =
 	unpack("CCCCCxxxN", $info);
 my $signature = eat($sig_len);
-
+# cert is identified either by subject key id, or by issuer DN + serial no
+my $issuer_dn;
+my $serial;
 my $key_id;
 my $name;
 if ($id_type == 1) {
@@ -508,32 +513,16 @@ if ($id_type == 1) {
 	if ($_key_id->[0] == ($CONT | 0)) {
 		# key_id: kernel-sign-file -k
 		$key_id  = asn1_extract($_key_id->[1], $CONT | 0);
-		$name = $key_id;
 	} else {
 		# issuer / serial
 		my $issuer = asn1_extract($_key_id->[1],
 					  $UNIV | $CONS | $SEQUENCE);
 		my $_serial = asn1_extract($_key_id->[1], $UNIV | $INTEGER);
-		my $serial = asn1_int(asn1_retrieve($_serial->[1]));
-		my $cn;
-	      CN:
-		while ($issuer->[1][1] > 0) {
-			my $_set = asn1_extract($issuer->[1],
-						$UNIV | $CONS | $SET);
-			my $_seq = asn1_extract($_set->[1],
-						$UNIV | $CONS | $SEQUENCE);
-			my $_oid = asn1_extract($_seq->[1], $UNIV | $OBJ_ID);
-			my $_x = asn1_retrieve($_oid->[1]);
-			if ($OIDs{asn1_retrieve($_oid->[1])} eq "commonName") {
-				my $_cn = asn1_extract($_seq->[1], -1);
-				$cn = asn1_retrieve($_cn->[1]);
-				last CN;
-			}
-	        }
-		die "$module_name: unable to determine CN"
-		  if !defined($cn);
-		$name="$cn:$serial";
-		$key_id = $name;
+		$serial = asn1_int(asn1_retrieve($_serial->[1]));
+		$issuer_dn = parse_x509_dn("issuer", $issuer->[1]);
+		if (defined($issuer_dn->{"issuer/commonName"})) {
+			$name = $issuer_dn->{"issuer/commonName"}."/$serial";
+		}
 	}
 
 	my $seq4 = asn1_extract($si_seq->[1], $UNIV | $CONS | $SEQUENCE);
@@ -559,8 +548,8 @@ die "Unsupported hash algorithm\n" if not exists $hash_algos{$hash};
 ($dgst, $hash_len, @oid) = @{$hash_algos{$hash}};
 $prologue = hash_prologue($hash_len, @oid);
 
-verbose("Signed by: $name\n");
-verbose("Key id: " . unpack("H*", $key_id) . "\n");
+verbose("Signed by: $name\n") if defined ($name);
+verbose("Key id: " . unpack("H*", $key_id) . "\n") if (defined($key_id));
 verbose("Hash algorithm: $dgst\n");
 
 my $digest = openssl_pipe($module, "openssl dgst -$dgst -binary");
@@ -568,8 +557,8 @@ my $original_message = $prologue . $digest;
 
 for my $cert (sort @certs) {
 	debug("Trying $cert\n");
-	next unless cert_matches($cert, $key_id, $name);
-	verbose("Found certificate $cert\n");
+	next unless cert_matches($cert, $key_id, $issuer_dn, $serial);
+	verbose("Found matching certificate $cert\n");
 
 	my ($fh, $filename) = tempfile() or die "Cannot create temporary file: $!\n";
 	my $pubkey = openssl_pipe("",
