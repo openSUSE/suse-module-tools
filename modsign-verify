@@ -105,6 +105,29 @@ my $SET		= 0x11;
 my $UTCTime	= 0x17;
 my $GeneralizedTime = 0x18;
 
+sub encode_asn1_oid($)
+{
+    my ($o1, $o2, @oid) = split(/\./, $_[0]);
+    my @bytes;
+
+    push @bytes, 40*$o1 + $o2;
+
+  DO:
+    while (scalar(@oid) > 0) {
+	    my $c = $oid[0];
+	    shift @oid;
+	    my @base128 = ();
+
+	    push @base128, ($c % 128);
+	    while ($c > 128) {
+		    $c /= 128;
+		    push @base128, (($c % 128) | 128);
+	    };
+	    push @bytes, reverse(@base128);
+  }
+    return pack("C*", @bytes);
+}
+
 my %OIDs = (
     pack("CCC", 85, 4, 3)	=> "commonName",
     pack("CCC", 85, 4, 6)	=> "countryName",
