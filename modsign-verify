@@ -281,6 +281,67 @@ sub find_hash_algo_by_oid($)
     return $key;
 }
 
+###############################################################################
+#
+# Roughly parse the X.509 certificate
+#
+###############################################################################
+sub parse_x509_der($)
+{
+	my ($bytes) = @_;
+
+	my $cursor = [ 0, length($bytes), \$bytes ];
+
+	my $cert = asn1_extract($cursor, $UNIV | $CONS | $SEQUENCE);
+	my $tbs = asn1_extract($cert->[1], $UNIV | $CONS | $SEQUENCE);
+	my $version = asn1_extract($tbs->[1], $CONT | $CONS | 0, 1);
+	my $serial_number = asn1_extract($tbs->[1], $UNIV | $INTEGER);
+	my $sig_type = asn1_extract($tbs->[1], $UNIV | $CONS | $SEQUENCE);
+	my $issuer = asn1_extract($tbs->[1], $UNIV | $CONS | $SEQUENCE);
+	my $issuer_dn = parse_x509_dn("issuer", $issuer->[1]);
+	my $validity = asn1_extract($tbs->[1], $UNIV | $CONS | $SEQUENCE);
+	my $subject = asn1_extract($tbs->[1], $UNIV | $CONS | $SEQUENCE);
+	my $key = asn1_extract($tbs->[1], $UNIV | $CONS | $SEQUENCE);
+	my $issuer_uid = asn1_extract($tbs->[1], $CONT | $CONS | 1, 1);
+	my $subject_uid = asn1_extract($tbs->[1], $CONT | $CONS | 2, 1);
+	my $extension_list = asn1_extract($tbs->[1], $CONT | $CONS | 3, 1);
+
+	my $subject_key_id = ();
+	my $authority_key_id = ();
+
+	#
+	# Parse the extension list
+	#
+	if ($extension_list->[0] != -1) {
+		my $extensions = asn1_extract($extension_list->[1], $UNIV | $CONS | $SEQUENCE);
+
+		while ($extensions->[1]->[1] > 0) {
+			my $ext = asn1_extract($extensions->[1], $UNIV | $CONS | $SEQUENCE);
+			my $x_oid = asn1_extract($ext->[1], $UNIV | $OBJ_ID);
+			my $x_crit = asn1_extract($ext->[1], $UNIV | $BOOLEAN, 1);
+			my $x_val = asn1_extract($ext->[1], $UNIV | $OCTET_STRING);
+
+			my $raw_oid = asn1_retrieve($x_oid->[1]);
+			next if (!exists($OIDs{$raw_oid}));
+			my $x_type = $OIDs{$raw_oid};
+
+			my $raw_value = asn1_retrieve($x_val->[1]);
+
+			if ($x_type eq "subjectKeyIdentifier") {
+				my $vcursor = [ 0, length($raw_value), \$raw_value ];
+
+				$subject_key_id = asn1_extract($vcursor, $UNIV | $OCTET_STRING);
+			}
+		}
+	}
+	my %result = (
+	    "subject_key_id" => asn1_retrieve($subject_key_id->[1]),
+	    "serial" => asn1_int(asn1_retrieve($serial_number->[1])),
+	    %$issuer_dn,
+	    );
+	return \%result;
+}
+
 #
 # Function to read the contents of a file into a variable.
 #
