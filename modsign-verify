@@ -286,6 +286,29 @@ sub find_hash_algo_by_oid($)
 # Roughly parse the X.509 certificate
 #
 ###############################################################################
+sub parse_x509_dn(@)
+{
+	my ($parent, $cursor) = @_;
+	my ($offset, $len, $data) = @$cursor;
+	my %result = ();
+
+	while ($cursor->[1]> 0) {
+		my $_set = asn1_extract($cursor, $UNIV | $CONS | $SET);
+		my $_seq = asn1_extract($_set->[1],
+					$UNIV | $CONS | $SEQUENCE);
+		my $_oid = asn1_extract($_seq->[1], $UNIV | $OBJ_ID);
+		my $oid = asn1_retrieve($_oid->[1]);
+		if (defined($OIDs{$oid})) {
+			my $key = "$parent/$OIDs{$oid}";
+			my $_x = asn1_extract($_seq->[1], -1);
+
+			# debug "found $key at $_seq->[1][0]\n";
+			$result{$key} = asn1_retrieve($_x->[1]);
+		};
+	}
+	return \%result;
+}
+
 sub parse_x509_der($)
 {
 	my ($bytes) = @_;
