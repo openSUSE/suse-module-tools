@@ -346,6 +346,9 @@ sub parse_x509_der($)
 	my $validity = asn1_extract($tbs->[1], $UNIV | $CONS | $SEQUENCE);
 	my $subject = asn1_extract($tbs->[1], $UNIV | $CONS | $SEQUENCE);
 	my $key = asn1_extract($tbs->[1], $UNIV | $CONS | $SEQUENCE);
+	my $pubkey = asn1_pack($UNIV | $CONS | $SEQUENCE,
+			     asn1_retrieve($key->[1]));
+
 	my $issuer_uid = asn1_extract($tbs->[1], $CONT | $CONS | 1, 1);
 	my $subject_uid = asn1_extract($tbs->[1], $CONT | $CONS | 2, 1);
 	my $extension_list = asn1_extract($tbs->[1], $CONT | $CONS | 3, 1);
@@ -381,6 +384,7 @@ sub parse_x509_der($)
 	my %result = (
 	    "subject_key_id" => asn1_retrieve($subject_key_id->[1]),
 	    "serial" => asn1_int(asn1_retrieve($serial_number->[1])),
+	    "pubkey" => $pubkey,
 	    %$issuer_dn,
 	    );
 	return \%result;
@@ -435,7 +439,11 @@ sub cert_matches($$$$) {
 	if (defined($subject_key_id)) {
 		debug("$cert has key id " .
 		      unpack("H*", $cert_props->{"subject_key_id"}) . "\n");
-		return ($cert_props->{"subject_key_id"} eq $subject_key_id);
+		if ($cert_props->{"subject_key_id"} eq $subject_key_id) {
+			return $cert_props;
+		} else {
+			return 0;
+		}
 	}
 
 	die "missing input data in cert_matches()"
@@ -453,7 +461,7 @@ sub cert_matches($$$$) {
 			return 0;
 		}
 	}
-	return 1;
+	return $cert_props;
 }
 
 my $module = read_file($module_name);
@@ -585,17 +593,16 @@ my $matched = 0;
 for my $cert (sort @certs) {
 	debug("Trying $cert\n");
 
-	next unless cert_matches($cert, $key_id, $issuer_dn, $serial);
+	my $cert_props = cert_matches($cert, $key_id, $issuer_dn, $serial);
+	next unless $cert_props;
 	verbose("Found matching certificate $cert\n");
 	$matched = $cert;
 
 	my ($fh, $filename) = tempfile() or die "Cannot create temporary file: $!\n";
-	my $pubkey = openssl_pipe("",
-		"openssl x509 -noout -in $cert -inform DER -pubkey");
-	print $fh $pubkey;
+	print $fh $cert_props->{"pubkey"};
 	close($fh);
 	my $verified_message = openssl_pipe($signature,
-		"openssl rsautl -verify -inkey $filename -keyform PEM -pubin");
+		"openssl rsautl -verify -inkey $filename -keyform DER -pubin");
 	unlink($filename);
 	if ($original_message ne $verified_message) {
 		verbose "$module_name: signature validation failed for $cert\n";
