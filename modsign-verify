@@ -443,13 +443,13 @@ sub cert_matches($$$$) {
 
 	if (!defined($cert_props->{"serial"}) ||
 	    $cert_props->{"serial"} ne $serial) {
-		verbose "$cert: serial number mismatch: $serial != ". $cert_props->{"serial"}."\n";
+		debug "$cert: serial number mismatch: $serial != ". $cert_props->{"serial"}."\n";
 		return 0;
 	}
 	foreach my $k (keys(%$issuer)) {
 		if (!defined($cert_props->{$k}) ||
 			     $issuer->{$k} ne $cert_props->{$k}) {
-			verbose "$cert: $k does not match signature\n";
+			debug "$cert: $k does not match signature\n";
 			return 0;
 		}
 	}
@@ -542,7 +542,8 @@ if ($id_type == 1) {
 		$serial = asn1_int(asn1_retrieve($_serial->[1]));
 		$issuer_dn = parse_x509_dn("issuer", $issuer->[1]);
 		if (defined($issuer_dn->{"issuer/commonName"})) {
-			$name = $issuer_dn->{"issuer/commonName"}."/$serial";
+			$name = "cn=" . $issuer_dn->{"issuer/commonName"} .
+			    ",serial=$serial";
 		}
 	}
 
@@ -558,7 +559,9 @@ if ($id_type == 1) {
 	    if $OIDs{asn1_retrieve($enc->[1])} ne "rsaEncryption";
 	my $_sig = asn1_extract($si_seq->[1], $UNIV | $OCTET_STRING);
 	$signature = asn1_retrieve($_sig->[1]);
-};
+} else {
+    die "unsupported signature type $id_type";
+}
 
 #
 # Digest the data
@@ -569,6 +572,7 @@ die "Unsupported hash algorithm\n" if not exists $hash_algos{$hash};
 ($dgst, $hash_len, $oid) = @{$hash_algos{$hash}};
 $prologue = hash_prologue($hash_len, $oid);
 
+verbose("Signature type: ", $id_type == 1 ? "legacy" : "pkcs#7", "\n");
 verbose("Signed by: $name\n") if defined ($name);
 verbose("Key id: " . unpack("H*", $key_id) . "\n") if (defined($key_id));
 verbose("Hash algorithm: $dgst\n");
