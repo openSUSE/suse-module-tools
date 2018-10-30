@@ -413,15 +413,15 @@ sub openssl_pipe($$) {
 	$pid = open2(*read_from, *write_to, $cmd) || die $cmd;
 	binmode write_to;
 	if (defined($input) && $input ne "") {
-		print write_to $input || die "$cmd: $!";
+		print write_to $input || return "";
 	}
 	close(write_to) || die "$cmd: $!";
 
 	binmode read_from;
-	read(read_from, $res, 4096) || die "$cmd: $!";
-	close(read_from) || die "$cmd: $!";
+	read(read_from, $res, 4096) || return "";
+	close(read_from) || return "";
 	waitpid($pid, 0) || die;
-	die "$cmd died: $?" if ($? >> 8);
+	return "" if ($? >> 8);
 	return $res;
 }
 
@@ -576,10 +576,14 @@ verbose("Hash algorithm: $dgst\n");
 my $digest = openssl_pipe($module, "openssl dgst -$dgst -binary");
 my $original_message = $prologue . $digest;
 
+my $good = 0;
+my $matched = 0;
 for my $cert (sort @certs) {
 	debug("Trying $cert\n");
+
 	next unless cert_matches($cert, $key_id, $issuer_dn, $serial);
 	verbose("Found matching certificate $cert\n");
+	$matched = $cert;
 
 	my ($fh, $filename) = tempfile() or die "Cannot create temporary file: $!\n";
 	my $pubkey = openssl_pipe("",
@@ -590,11 +594,17 @@ for my $cert (sort @certs) {
 		"openssl rsautl -verify -inkey $filename -keyform PEM -pubin");
 	unlink($filename);
 	if ($original_message ne $verified_message) {
-		print "$module_name: bad signature\n";
-		exit(1);
+		verbose "$module_name: signature validation failed for $cert\n";
+		next;
 	}
 	print "$module_name: good signature\n";
+	$good = 1;
 	exit(0);
 }
-print "certificate not found\n";
-exit(2);
+if (!$matched) {
+	print "certificate not found\n";
+	exit(2);
+} else {
+	print "$module_name: bad signature\n";
+	exit(1);
+}
