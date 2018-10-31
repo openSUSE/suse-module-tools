@@ -61,7 +61,10 @@ Workstation Extension module.
 %setup -q
 
 %build
-:
+%if 0%{?is_opensuse} == 0
+sed -ri 's/^( *allow_unsupported_modules *) 1/\1 0/' \
+	10-unsupported-modules.conf
+%endif
 
 %install
 # now assemble the parts for modprobe.conf
@@ -116,14 +119,6 @@ install -pm 644 81-sg.rules "%{buildroot}%{_libexecdir}/udev/rules.d"
 %if 0%{?sle_version} >= 150000
 # Delete obsolete unsupported-modules file from SLE11
 rm -f %{_sysconfdir}/modprobe.d/unsupported-modules
-%if 0%{?is_opensuse} == 1
-# Disallowing unsupported modules on openSUSE is pointless.
-allow=1
-%else
-# On SLE15, unsupported modules are disallowed unless the WE
-# module is installed. We deliberately reset this on update.
-allow=0
-%endif
 %else
 # Logic for releases below CODE 15
 test_allow_on_install()
@@ -143,6 +138,7 @@ test_allow_on_install()
 	fi
 	# don't change the setting during upgrade
 	if test "$1" != 1; then
+		allow=
 		return
 	fi
 	# on SLES, the default is not to allow unsupported modules
@@ -170,11 +166,11 @@ if test -e %{_sysconfdir}/modprobe.d/unsupported-modules; then
 		%{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
 fi
 test_allow_on_install "$@"
-%endif
-if test "$allow" = "0"; then
-	sed -ri 's/^( *allow_unsupported_modules *) 1/\1 0/' \
+if test "$allow" = "0" -o "$allow" = "1"; then
+	sed -ri 's/^( *allow_unsupported_modules *) [01]/\1 '"$allow"'/' \
 		%{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
 fi
+%endif
 
 # upgrade from old locations
 if test -e %{_sysconfdir}/modprobe.conf.local; then
