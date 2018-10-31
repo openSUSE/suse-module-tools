@@ -188,11 +188,7 @@ fi
 %doc README.SUSE
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/00-system.conf
-%if 0%{?sle_version} >= 150000
-%config %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
-%else
 %config(noreplace) %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
-%endif
 %config(noreplace) %{_sysconfdir}/modprobe.d/99-local.conf
 %dir %{_sysconfdir}/depmod.d
 %config %{_sysconfdir}/depmod.d/00-system.conf
