@@ -33,6 +33,8 @@ Requires:       gzip
 Requires:       kmod-compat
 Requires:       rpm
 Requires:       sed
+# For SLE11-SP4
+BuildRequires:  xz
 
 %description
 This package contains helper scripts for KMP installation and
