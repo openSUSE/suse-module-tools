@@ -112,7 +112,6 @@ sub encode_asn1_oid($)
 
     push @bytes, 40*$o1 + $o2;
 
-  DO:
     while (scalar(@oid) > 0) {
 	    my $c = $oid[0];
 	    shift @oid;
@@ -511,8 +510,8 @@ if ($id_type == 1) {
 	# PKCS7 signature
 	$ASN1_EXTRACT_MSG = $module_name;
 	my $cursor = [ 0, length($signature), \$signature ];
-	my $seq0 = asn1_extract($cursor, $UNIV|$CONS|$SEQUENCE);
-	my $signed_data = asn1_extract($seq0->[1], $UNIV|$OBJ_ID);
+	my $seq0 = asn1_extract($cursor, $UNIV | $CONS | $SEQUENCE);
+	my $signed_data = asn1_extract($seq0->[1], $UNIV | $OBJ_ID);
 	die "$module_name: no PKCS#7 signed_data structure\n"
 	    if $OIDs{asn1_retrieve($signed_data->[1])} !~ /^pkcs7-signed-data$/;
 
