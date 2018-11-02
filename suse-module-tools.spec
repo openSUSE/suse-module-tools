@@ -34,7 +34,10 @@ Requires:       kmod-compat
 Requires:       rpm
 Requires:       sed
 # For SLE11-SP4
+%if 0%{suse_version} < 1200
 BuildRequires:  xz
+BuildRoot:      %{_tmppath}/%{name}-%{version}-build
+%endif
 
 %description
 This package contains helper scripts for KMP installation and
@@ -117,6 +120,10 @@ install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_libexecdir}/systemd/syste
 install -d -m 755 "%{buildroot}%{_libexecdir}/udev/rules.d"
 install -pm 644 81-sg.rules "%{buildroot}%{_libexecdir}/udev/rules.d"
 
+%if 0%{suse_version} >= 1200
+mkdir -p %{buildroot}%{_defaultlicensedir}
+%endif
+
 %post
 %if 0%{?sle_version} >= 150000
 # Delete obsolete unsupported-modules file from SLE11
@@ -182,7 +189,15 @@ fi
 
 %files
 %defattr(-,root,root)
+
+%if 0%{suse_version} >= 1200
+%if 0%{?sle_version:%{sle_version}}%{!?sle_version:150000} <= 120200
+%dir %{_defaultlicensedir}
+%endif
 %license LICENSE
+%else
+%doc LICENSE
+%endif
 %doc README.SUSE
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/00-system.conf
@@ -196,6 +211,9 @@ fi
 %{_bindir}/modsign-verify
 %{_libexecdir}/module-init-tools
 %{_libexecdir}/systemd/system/systemd-sysctl.service.d
+%if 0%{?sle_version} <= 120200
+%dir %{_libexecdir}/udev
+%endif
 %dir %{_libexecdir}/udev/rules.d
 %{_libexecdir}/udev/rules.d/81-sg.rules
 
