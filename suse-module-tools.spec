@@ -112,9 +112,11 @@ install -pm 755 kmp-install "%{buildroot}%{_bindir}/"
 # modhash for calculating hash of signed kernel module
 install -pm 755 modhash "%{buildroot}%{_bindir}/"
 
+%if 0%{suse_version} >= 1200
 # systemd service to load /boot/sysctl.conf-`uname -r`
 install -d -m 755 "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
 install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
+%endif
 
 # udev rule to load sg if necessary, and after type-specific driver
 install -d -m 755 "%{buildroot}%{_libexecdir}/udev/rules.d"
@@ -210,7 +212,9 @@ fi
 %{_bindir}/kmp-install
 %{_bindir}/modsign-verify
 %{_libexecdir}/module-init-tools
+%if 0%{?suse_version} >= 1200
 %{_libexecdir}/systemd/system/systemd-sysctl.service.d
+%endif
 %if 0%{?sle_version} <= 120200
 %dir %{_libexecdir}/udev
 %endif
