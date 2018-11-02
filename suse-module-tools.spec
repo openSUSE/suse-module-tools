@@ -132,6 +132,11 @@ mkdir -p %{buildroot}%{_defaultlicensedir}
 rm -f %{_sysconfdir}/modprobe.d/unsupported-modules
 %else
 # Logic for releases below CODE 15
+%if 0%{?is_opensuse} == 1
+allowed=1
+%else
+allowed=0
+%endif
 test_allow_on_install()
 {
 	# configure handling of unsupported modules
@@ -177,7 +182,7 @@ if test -e %{_sysconfdir}/modprobe.d/unsupported-modules; then
 		%{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
 fi
 test_allow_on_install "$@"
-if test "$allow" = "0" -o "$allow" = "1"; then
+if test -n "$allow" -a "$allow" != "$allowed"; then
 	sed -ri 's/^( *allow_unsupported_modules *) [01]/\1 '"$allow"'/' \
 		%{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
 fi
