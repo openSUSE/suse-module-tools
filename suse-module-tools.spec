@@ -46,23 +46,6 @@ uninstallation, as well as default configuration files for depmod and
 modprobe. These utilities are provided by kmod-compat or
 module-init-tools, whichever implementation you choose to install.
 
-%if 0%{?sle_version} >= 150000
-%if 0%{?is_opensuse} == 0
-%package we
-Summary:        Configuration module for Workstation Extension
-Group:          System/Base
-Requires:       %{name} >= %{version}
-Supplements:    kernel-default-extra
-
-%description we
-This package contains a configuration file that allows loading
-unsupported kernel modules. This is necessary to load modules
-from the kernel-default-extra package from the SUSE Linux Enterprise
-Workstation Extension module.
-
-%endif
-%endif
-
 %prep
 %setup -q
 
@@ -81,15 +64,6 @@ fi
 install -d -m 755 "%{buildroot}%{_sysconfdir}/modprobe.d"
 install -pm644 "10-unsupported-modules.conf" \
 	"%{buildroot}%{_sysconfdir}/modprobe.d/"
-%if 0%{?sle_version} >= 150000
-%if 0%{?is_opensuse} == 0
-cat >"%{buildroot}%{_sysconfdir}/modprobe.d/20-unsupported-modules-we.conf" <<EOF
-# This overrides the default from 10-unsupported-modules.conf
-# Necessary to load modules from kernel-default-extra
-allow_unsupported_modules 1
-EOF
-%endif
-%endif
 install -pm644 00-system.conf "%{buildroot}%{_sysconfdir}/modprobe.d/"
 install -pm644 modprobe.conf/modprobe.conf.local "%{buildroot}%{_sysconfdir}/modprobe.d/99-local.conf"
 install -d -m 755 "%{buildroot}%{_sysconfdir}/depmod.d"
@@ -226,13 +200,5 @@ fi
 %endif
 %dir %{_libexecdir}/udev/rules.d
 %{_libexecdir}/udev/rules.d/81-sg.rules
-
-%if 0%{?sle_version} >= 150000
-%if 0%{?is_opensuse} == 0
-%files we
-%defattr(-,root,root)
-%config /etc/modprobe.d/20-unsupported-modules-we.conf
-%endif
-%endif
 
 %changelog
