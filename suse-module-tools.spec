@@ -24,14 +24,15 @@ License:        GPL-2.0-or-later
 Group:          System/Base
 Url:            https://github.com/openSUSE/suse-module-tools
 Source0:        %{name}-%{version}.tar.xz
-Source1:	%{name}.rpmlintrc
+Source1:        %{name}.rpmlintrc
 Requires:       /sbin/mkinitrd
 Requires:       binutils
 Requires:       coreutils
 Requires:       findutils
 Requires:       grep
 Requires:       gzip
-Requires:       kmod-compat
+# module-init-tools in older distros, kmod-compat in later ones
+Requires:       /sbin/depmod
 Requires:       rpm
 Requires:       sed
 # For SLE11-SP4
