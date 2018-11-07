@@ -17,7 +17,7 @@
 
 
 Name:           suse-module-tools
-Version:        15.0
+Version:        15.0.1
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
@@ -92,11 +92,12 @@ install -pm 755 modhash "%{buildroot}%{_bindir}/"
 # systemd service to load /boot/sysctl.conf-`uname -r`
 install -d -m 755 "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
 install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
-%endif
 
-# udev rule to load sg if necessary, and after type-specific driver
-install -d -m 755 "%{buildroot}%{_libexecdir}/udev/rules.d"
-install -pm 644 81-sg.rules "%{buildroot}%{_libexecdir}/udev/rules.d"
+# Ensure that the sg driver is loaded early (bsc#1036463)
+# Not needed in SLE11, where sg is loaded via udev rule.
+install -d -m 755 "%{buildroot}%{_libexecdir}/modules-load.d"
+install -pm 644 sg.conf "%{buildroot}%{_libexecdir}/modules-load.d"
+%endif
 
 %if 0%{suse_version} >= 1200
 mkdir -p %{buildroot}%{_defaultlicensedir}
@@ -195,11 +196,8 @@ fi
 %{_libexecdir}/module-init-tools
 %if 0%{?suse_version} >= 1200
 %{_libexecdir}/systemd/system/systemd-sysctl.service.d
+%dir %{_libexecdir}/modules-load.d
+%{_libexecdir}/modules-load.d/sg.conf
 %endif
-%if 0%{?sle_version} <= 120200
-%dir %{_libexecdir}/udev
-%endif
-%dir %{_libexecdir}/udev/rules.d
-%{_libexecdir}/udev/rules.d/81-sg.rules
 
 %changelog

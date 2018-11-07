@@ -1,2 +1,0 @@
-# load sg module after type-specific module
-ACTION=="add", ENV{MODALIAS}=="scsi:t-*", RUN{builtin}+="kmod load sg"
