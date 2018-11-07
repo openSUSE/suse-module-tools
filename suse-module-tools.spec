@@ -95,8 +95,8 @@ install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_libexecdir}/systemd/syste
 
 # Ensure that the sg driver is loaded early (bsc#1036463)
 # Not needed in SLE11, where sg is loaded via udev rule.
-install -d -m 755 "%{buildroot}%{_libexecdir}/modules-load.d"
-install -pm 644 sg.conf "%{buildroot}%{_libexecdir}/modules-load.d"
+install -d -m 755 "%{buildroot}%{_sysconfdir}/modules-load.d"
+install -pm 644 sg.conf "%{buildroot}%{_sysconfdir}/modules-load.d"
 %endif
 
 %if 0%{suse_version} >= 1200
@@ -196,8 +196,8 @@ fi
 %{_libexecdir}/module-init-tools
 %if 0%{?suse_version} >= 1200
 %{_libexecdir}/systemd/system/systemd-sysctl.service.d
-%dir %{_libexecdir}/modules-load.d
-%{_libexecdir}/modules-load.d/sg.conf
+%dir %{_sysconfdir}/modules-load.d
+%config(noreplace) %{_sysconfdir}/modules-load.d/sg.conf
 %endif
 
 %changelog
