@@ -35,11 +35,6 @@ Requires:       gzip
 Requires:       /sbin/depmod
 Requires:       rpm
 Requires:       sed
-# For SLE11-SP4
-%if 0%{suse_version} < 1200
-BuildRequires:  xz
-BuildRoot:      %{_tmppath}/%{name}-%{version}-build
-%endif
 
 %description
 This package contains helper scripts for KMP installation and
@@ -88,7 +83,6 @@ install -pm 755 kmp-install "%{buildroot}%{_bindir}/"
 # modhash for calculating hash of signed kernel module
 install -pm 755 modhash "%{buildroot}%{_bindir}/"
 
-%if 0%{suse_version} >= 1200
 # systemd service to load /boot/sysctl.conf-`uname -r`
 install -d -m 755 "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
 install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_libexecdir}/systemd/system/systemd-sysctl.service.d"
@@ -97,11 +91,8 @@ install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_libexecdir}/systemd/syste
 # Not needed in SLE11, where sg is loaded via udev rule.
 install -d -m 755 "%{buildroot}%{_sysconfdir}/modules-load.d"
 install -pm 644 sg.conf "%{buildroot}%{_sysconfdir}/modules-load.d"
-%endif
 
-%if 0%{suse_version} >= 1200
 mkdir -p %{buildroot}%{_defaultlicensedir}
-%endif
 
 %post
 %if 0%{?sle_version} >= 150000
@@ -174,14 +165,10 @@ fi
 %files
 %defattr(-,root,root)
 
-%if 0%{suse_version} >= 1200
 %if 0%{?sle_version:%{sle_version}}%{!?sle_version:150000} <= 120200
 %dir %{_defaultlicensedir}
 %endif
 %license LICENSE
-%else
-%doc LICENSE
-%endif
 %doc README.SUSE
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/00-system.conf
@@ -194,10 +181,8 @@ fi
 %{_bindir}/kmp-install
 %{_bindir}/modsign-verify
 %{_libexecdir}/module-init-tools
-%if 0%{?suse_version} >= 1200
 %{_libexecdir}/systemd/system/systemd-sysctl.service.d
 %dir %{_sysconfdir}/modules-load.d
 %config(noreplace) %{_sysconfdir}/modules-load.d/sg.conf
-%endif
 
 %changelog
