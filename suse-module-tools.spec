@@ -17,7 +17,7 @@
 
 
 Name:           suse-module-tools
-Version:        15.0.1
+Version:        15.0.2
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
@@ -26,7 +26,6 @@ Url:            https://github.com/openSUSE/suse-module-tools
 Source0:        %{name}-%{version}.tar.xz
 Source1:        %{name}.rpmlintrc
 # not /sbin/mkinitrd because base distros don't provide it on purpose
-Requires:       binutils
 Requires:       coreutils
 Requires:       findutils
 Requires:       grep
@@ -38,10 +37,23 @@ Requires:       rpm
 Requires:       sed
 
 %description
-This package contains helper scripts for KMP installation and
+This package contains helper scripts for MP installation and
 uninstallation, as well as default configuration files for depmod and
 modprobe. These utilities are provided by kmod-compat or
 module-init-tools, whichever implementation you choose to install.
+
+
+%package legacy
+License:        GPL-2.0-or-later
+Group:          System/Base
+Summary:	Legacy "weak-modules" script for Code10
+Requires:       binutils
+Requires:	%{name}
+
+%description legacy
+This package contains the legacy "weak-modules" script for kernel
+module package (KMP) support. It was replaced by "weak-modules2" in
+SLE 11 and later.
 
 %prep
 %setup -q
@@ -182,8 +194,15 @@ fi
 %{_bindir}/kmp-install
 %{_bindir}/modsign-verify
 %{_libexecdir}/module-init-tools
+%exclude %{_libexecdir}/module-init-tools/weak-modules
 %{_libexecdir}/systemd/system/systemd-sysctl.service.d
 %dir %{_sysconfdir}/modules-load.d
 %config(noreplace) %{_sysconfdir}/modules-load.d/sg.conf
+
+%files legacy
+%defattr(-,root,root)
+
+%{_libexecdir}/module-init-tools/weak-modules
+
 
 %changelog
