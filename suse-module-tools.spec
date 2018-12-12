@@ -17,7 +17,7 @@
 
 
 Name:           suse-module-tools
-Version:        15.0.2
+Version:        15.0.10
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
@@ -88,9 +88,7 @@ install -d -m 755 "%{buildroot}%{_sysconfdir}/rpm"
 install -pm 644 "macros.initrd" "%{buildroot}%{_sysconfdir}/rpm/"
 install -pm 755 "regenerate-initrd-posttrans" "%{buildroot}%{_libexecdir}/module-init-tools/"
 
-# modsign-verify for verifying module signatures
 install -d -m 755 "%{buildroot}%{_prefix}/bin"
-install -pm 755 modsign-verify "%{buildroot}%{_bindir}/"
 install -pm 755 kmp-install "%{buildroot}%{_bindir}/"
 # modhash for calculating hash of signed kernel module
 install -pm 755 modhash "%{buildroot}%{_bindir}/"
@@ -191,7 +189,6 @@ fi
 %config %{_sysconfdir}/rpm/macros.initrd
 %{_bindir}/modhash
 %{_bindir}/kmp-install
-%{_bindir}/modsign-verify
 %{_libexecdir}/module-init-tools
 %exclude %{_libexecdir}/module-init-tools/weak-modules
 %{_libexecdir}/systemd/system/systemd-sysctl.service.d
