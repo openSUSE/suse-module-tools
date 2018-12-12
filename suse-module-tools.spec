@@ -37,18 +37,17 @@ Requires:       rpm
 Requires:       sed
 
 %description
-This package contains helper scripts for MP installation and
+This package contains helper scripts for KMP installation and
 uninstallation, as well as default configuration files for depmod and
 modprobe. These utilities are provided by kmod-compat or
 module-init-tools, whichever implementation you choose to install.
 
 
 %package legacy
-License:        GPL-2.0-or-later
+Summary:        Legacy "weak-modules" script for Code10
 Group:          System/Base
-Summary:	Legacy "weak-modules" script for Code10
+Requires:       %{name}
 Requires:       binutils
-Requires:	%{name}
 
 %description legacy
 This package contains the legacy "weak-modules" script for kernel
@@ -203,6 +202,5 @@ fi
 %defattr(-,root,root)
 
 %{_libexecdir}/module-init-tools/weak-modules
-
 
 %changelog
