@@ -31,6 +31,8 @@ Requires:       grep
 Requires:       gzip
 Recommends:	mkinitrd
 # module-init-tools in older distros, kmod-compat in later ones
+# we could use "modutils" here, but that might blow up some images
+# and/or OBS builds.
 Requires:       /sbin/depmod
 Requires:       rpm
 Requires:       sed

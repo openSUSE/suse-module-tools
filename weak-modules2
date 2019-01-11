@@ -56,6 +56,23 @@
 # kmps: list of kmps, newest first
 #
 
+find_depmod() {
+    local _d
+
+    [[ -x "$DEPMOD" ]] && return
+    DEPMOD=
+    for _d in /usr/sbin /sbin; do
+	if [[ -x ${_d}/depmod ]]; then
+	    DEPMOD=${_d}/depmod
+	    break;
+	fi
+    done
+    if [[ ! "$DEPMOD" ]]; then
+	echo "ERROR: depmod is not installed - aborting" >&2
+	exit 1
+    fi
+}
+
 log() {
     [ -n "$opt_verbose" ] && echo "$@" >&2
 }
@@ -156,7 +173,7 @@ has_unresolved_symbols() {
 	echo "warning: $tmpdir/symvers-$krel not available" >&2
 	args=(-F /boot/System.map-$krel)
     fi
-    output="$(/sbin/depmod -b "$basedir" -ae "${args[@]}" $krel 2>&1)"
+    output="$("$DEPMOD" -b "$basedir" -ae "${args[@]}" $krel 2>&1)"
     status=$?
     if [ $status -ne 0 ]; then
 	echo "$output" >&2
@@ -348,7 +365,7 @@ run_depmod_and_mkinitrd() {
     local status=0
 
     if [ -d /lib/modules/$krel -a -f /boot/System.map-$krel ] ; then
-	doit /sbin/depmod -F /boot/System.map-$krel -ae $krel || return 1
+	doit "$DEPMOD" -F /boot/System.map-$krel -ae $krel || return 1
     fi
     if needs_mkinitrd $krel; then
 	local image
@@ -674,6 +691,7 @@ if [ -n "$err" ]; then
 fi
 
 #unset LANG LC_ALL LC_COLLATE
+find_depmod
 
 tmpdir=$(mktemp -d /var/tmp/${0##*/}.XXXXXX)
 trap "rm -rf $tmpdir" EXIT
