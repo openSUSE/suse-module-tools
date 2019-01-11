@@ -25,12 +25,11 @@ Group:          System/Base
 Url:            https://github.com/openSUSE/suse-module-tools
 Source0:        %{name}-%{version}.tar.xz
 Source1:        %{name}.rpmlintrc
-# not /sbin/mkinitrd because base distros don't provide it on purpose
 Requires:       coreutils
 Requires:       findutils
 Requires:       grep
 Requires:       gzip
-Requires:       mkinitrd
+Recommends:	mkinitrd
 # module-init-tools in older distros, kmod-compat in later ones
 Requires:       /sbin/depmod
 Requires:       rpm
