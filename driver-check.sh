@@ -10,6 +10,23 @@ warnings=0
 trap 'rm -rf "$tmp"' EXIT
 tmp=$(mktemp -d)
 
+find_depmod() {
+    local _d
+
+    [[ -x "$DEPMOD" ]] && return
+    DEPMOD=
+    for _d in /usr/sbin /sbin; do
+	if [[ -x ${_d}/depmod ]]; then
+	    DEPMOD=${_d}/depmod
+	    break;
+	fi
+    done
+    if [[ ! "$DEPMOD" ]]; then
+	echo "ERROR: depmod is not installed - aborting" >&2
+	exit 1
+    fi
+}
+
 rpm()
 {
 	# rpm tends to send localized error messages to stdout :-(
@@ -109,9 +126,11 @@ check_krel()
 		explain "Each kernel must install /boot/System.map-\$version and /boot/symvers-\$version.gz to be able to check module dependencies."
 		return
 	fi
-	set -- $(/sbin/depmod --version | sed -rn 's/.* ([0-9]+)\.([0-9]+)(\..*)?/\1 \2/p')
+	set -- $("$DEPMOD" --version | sed -rn 's/.* ([0-9]+)(\.([0-9]+)(\..*)?)?/\1 \3/p')
 	if test -n "$1" -a -n "$2"; then
 		let "mit_version = $1 * 100 + $2"
+	elif test -n "$1" -a \! -n "$2" -a "$1" -gt 3; then
+		let "mit_version = $1 * 100"
 	else
 		warning "Cannot determine module-init-tools version, this is a bug in the script"
 		mit_version=0
@@ -123,7 +142,7 @@ check_krel()
 	else
 		args=(-F "$system_map")
 	fi
-	msg=$(/sbin/depmod -n -e "${args[@]}" "$krel" 2>&1 >/dev/null)
+	msg=$("$DEPMOD" -n -e "${args[@]}" "$krel" 2>&1 >/dev/null)
 	res=$?
 	if test -n "$msg" -o "$res" -ne 0; then
 		echo "$msg"
@@ -242,6 +261,7 @@ if test $# -gt 0; then
 	exit 1
 fi
 
+find_depmod
 check_system
 
 # set up redirection
