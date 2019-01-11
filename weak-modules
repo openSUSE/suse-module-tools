@@ -318,7 +318,11 @@ for krel in ${!changed_initrd_*}; do
 	fi
     done
     if [ -n "$image" ]; then
-	/sbin/mkinitrd -k /boot/$image-$krel -i /boot/initrd-$krel
+	if [ -x /sbin/mkinitrd ]; then
+	    /sbin/mkinitrd -k /boot/$image-$krel -i /boot/initrd-$krel
+	else
+	    echo "Please run mkinitrd as soon as your system is complete." >&2
+	fi
     fi
 done
 
