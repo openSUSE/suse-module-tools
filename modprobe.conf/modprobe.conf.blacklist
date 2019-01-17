@@ -1,4 +1,6 @@
 #
+# $Id$
+#
 # Listing a module here prevents modprobe from loading it via modalias (only
 # aliases from /lib/modules/*/modules.alias). You may still load it explicitely.
 # We blacklist some modules becaus they may harm on certain devices or they
