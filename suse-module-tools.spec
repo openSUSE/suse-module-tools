@@ -184,6 +184,7 @@ fi
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/00-system.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
+%config(noreplace) %{_sysconfdir}/modprobe.d/50-blacklist.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/99-local.conf
 %dir %{_sysconfdir}/depmod.d
 %config %{_sysconfdir}/depmod.d/00-system.conf
