@@ -15,9 +15,16 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
+# List of legacy file systems to be blacklisted by default
+%if 0%{?is_opensuse}
+%global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs f2fs hfs hpfs jffs2 jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ubifs ufs
+%else
+# SLE only ships a few of them
+%global fs_blacklist cramfs ufs
+%endif
 
 Name:           suse-module-tools
-Version:        15.1.0
+Version:        15.1.10
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
@@ -112,6 +119,25 @@ install -pm 644 sg.conf "%{buildroot}%{_sysconfdir}/modules-load.d"
 
 mkdir -p %{buildroot}%{_defaultlicensedir}
 
+%if 0%{?suse_version} >= 1500
+for mod in %{fs_blacklist}; do
+    echo "\
+# The $mod file system is blacklisted by default because it isn't actively
+# supported by SUSE, not well maintained, and may have security vulnerabilites.
+# To enable autoloading the $mod file system module, comment out the
+# \"blacklist $mod\" statement below. ENABLE AT YOUR OWN RISK.
+#
+# File system modules loaded at installation time of the %{name} package
+# are not blacklisted. This is achieved by commenting out the blacklist
+# line in the post-installation script. To prevent the post-installation
+# script from modifying this file, delete the line containing \"THIS FILE MAY
+# BE MODIFIED\" at the bottom.
+blacklist $mod
+# __THIS FILE MAY BE MODIFIED__" \
+	>%{buildroot}%{_sysconfdir}/modprobe.d/60-blacklist_fs-"$mod".conf
+done
+%endif
+
 %post
 %if 0%{?sle_version} >= 150000
 # Delete obsolete unsupported-modules file from SLE11
@@ -179,6 +205,26 @@ if test -e %{_sysconfdir}/modprobe.conf.local; then
 	mv -f %{_sysconfdir}/modprobe.conf.local \
 		%{_sysconfdir}/modprobe.d/99-local.conf
 fi
+
+# Avoid systems becoming unbootable by blacklisting filesystem
+# modules. Modules loaded at installation time will not be
+# blacklisted (the blacklist statement is commented out).
+# config(noreplace) makes sure that this is not overwritten by rpm.
+%if 0%{?suse_version} >= 1500
+for mod in %{fs_blacklist}; do
+	conf=%{_sysconfdir}/modprobe.d/60-blacklist_fs-"$mod".conf
+	if [[ -f "$conf" ]] && \
+	    grep -q '^# __THIS FILE MAY BE MODIFIED__$' "$conf" && \
+            sed '/^nodev/d;' /proc/filesystems | grep -q "\<$mod\>"; then
+		sed -i '
+/^# next line was commented out by postinstall script of %{name}$/d
+/^blacklist '"$mod"'/{i\
+# next line was commented out by postinstall script of %{name}
+s/^/# /
+}' "$conf"
+	fi
+done
+%endif
 
 %files
 %defattr(-,root,root)
