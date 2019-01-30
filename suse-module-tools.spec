@@ -79,6 +79,7 @@ install -pm644 "10-unsupported-modules.conf" \
 	"%{buildroot}%{_sysconfdir}/modprobe.d/"
 install -pm644 00-system.conf "%{buildroot}%{_sysconfdir}/modprobe.d/"
 install -pm644 modprobe.conf/modprobe.conf.blacklist "%{buildroot}%{_sysconfdir}/modprobe.d/50-blacklist.conf"
+install -pm644 modprobe.conf/modprobe.conf.fs-blacklist "%{buildroot}%{_sysconfdir}/modprobe.d/60-filesystem-blacklist.conf"
 install -pm644 modprobe.conf/modprobe.conf.local "%{buildroot}%{_sysconfdir}/modprobe.d/99-local.conf"
 install -d -m 755 "%{buildroot}%{_sysconfdir}/depmod.d"
 install -pm 644 "depmod-00-system.conf" \
@@ -189,6 +190,8 @@ fi
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/00-system.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
+%config(noreplace) %{_sysconfdir}/modprobe.d/50-blacklist.conf
+%config(noreplace) %{_sysconfdir}/modprobe.d/60-filesystem-blacklist.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/99-local.conf
 %dir %{_sysconfdir}/depmod.d
 %config %{_sysconfdir}/depmod.d/00-system.conf
