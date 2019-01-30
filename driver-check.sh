@@ -79,14 +79,33 @@ check_system()
 	fi
 }
 
+check_rpm_V()
+{
+	local attrs flags path
+
+	# kernel packages contain the initrd with permissions 0644,
+	# but dracut creates initrd with 0600. That's not an error.
+	while read attrs flags path; do
+	        case $attrs in
+		.M.......)
+			if [[ "${path#/boot/initrd}" != "$path" && \
+				      -f "$path" && \
+				       $(stat -c %a "$path") = 600 ]]; then
+				    continue
+			fi
+			;;
+		esac
+		echo "$attrs $flags $path"
+		error "$rpm was not installed correctly (see above)"
+	done
+}
+
 check_rpm()
 {
-	local rpm=$1 name=${1%-*-*}
+	local rpm=$1 name=${1%-*-*} out
 
 	# ignore changes to %config and %doc files and ignore changed mtimes
-	if rpm -V "$rpm" | grep -Ev '^[^ ]{8,}  [cd] |^\.{7}T\.* '; then
-		error "$rpm was not installed correctly (see above)"
-	fi
+	check_rpm_V < <(rpm -V "$rpm" | grep -Ev '^[^ ]{8,}  [cd] |^\.{7}T\.* ')
 }
 
 check_kernel_package()
