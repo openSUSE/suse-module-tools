@@ -1,7 +1,7 @@
 #!/bin/bash
 
-VERSION="0.5"
-MAINTAINER="Michal Marek <mmarek@suse.cz>"
+VERSION="0.6"
+MAINTAINER="Martin Wilck <mwilck@suse.com>"
 USAGE="Usage: ${0##*/} [-o|--out output-file]"
 
 errors=0
