@@ -261,7 +261,9 @@ if test $logfile != "-"; then
 fi
 echo "${0##*/} $VERSION started at $(date -R)" >&2
 
-check_rpm $(rpm -q --qf '%{n}-%{v}-%{r}\n' module-init-tools)
+smt=$(rpm -q --qf '%{n}-%{v}-%{r}\n' module-init-tools) || \
+    smt=$(rpm -q --qf '%{n}-%{v}-%{r}\n' suse-module-tools)
+check_rpm "$smt"
 
 mkdir -p "$tmp/rpms"
 found_kernel=false
