@@ -17,7 +17,7 @@
 
 
 Name:           suse-module-tools
-Version:        15.0.10
+Version:        15.0.20
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
@@ -29,13 +29,17 @@ Requires:       coreutils
 Requires:       findutils
 Requires:       grep
 Requires:       gzip
-Recommends:	mkinitrd
-# module-init-tools in older distros, kmod-compat in later ones
-# we could use "modutils" here, but that might blow up some images
-# and/or OBS builds.
-Requires:       /sbin/depmod
 Requires:       rpm
 Requires:       sed
+# Use weak dependencies for mkinitrd and kmod in order to
+# keep Ring0 lean. In normal deployments, these packages
+# will be available anyway.
+Recommends:	mkinitrd
+%if 0%{?suse_version} >= 1315
+Recommends:	kmod
+%else
+Recommends:	modutils
+%endif
 
 %description
 This package contains helper scripts for KMP installation and
