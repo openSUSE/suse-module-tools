@@ -70,12 +70,6 @@ check_rpm()
 	if rpm -V "$rpm" | grep -Ev '^[^ ]{8,}  [cd] |^\.{7}T\.* '; then
 		error "$rpm was not installed correctly (see above)"
 	fi
-	# this is ugly. Apparently zypper insist on the progress messages and
-	# the ascii table, so grep for the table row.
-	if ! LC_ALL=C zypper -A search -t package -u -s --match-exact "$name" \
-		| grep -qe ---; then
-		error "$rpm: no update repositories found"
-	fi
 }
 
 check_kernel_package()
