@@ -285,7 +285,7 @@ for rpm in $(rpm -qa --qf '%{n}-%{v}-%{r}\n' 'kernel-*' '*-kmp-*' | \
 	case "$rpm" in
 	kernel-source-* | kernel-syms-* | kernel-*-debug* | kernel-*-man-* | \
 	kernel-*-devel-* | kernel-firmware-* | kernel-coverage-* | \
-	kernel-docs-* | kernel-devel-*)
+	kernel-docs-* | kernel-devel-* | kernel-macros-*)
 		continue
 	esac
 	# store the filelist to speed up file_owner()
