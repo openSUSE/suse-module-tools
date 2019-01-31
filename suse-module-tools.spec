@@ -17,7 +17,7 @@
 
 
 Name:           suse-module-tools
-Version:        15.0.20
+Version:        15.1.0
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
@@ -78,7 +78,7 @@ install -d -m 755 "%{buildroot}%{_sysconfdir}/modprobe.d"
 install -pm644 "10-unsupported-modules.conf" \
 	"%{buildroot}%{_sysconfdir}/modprobe.d/"
 install -pm644 00-system.conf "%{buildroot}%{_sysconfdir}/modprobe.d/"
-%if 0%{?suse_version} >= 1500
+%if 0%{?suse_version} >= 1550 || 0%{?sle_version} >= 150100
 install -pm644 modprobe.conf/modprobe.conf.blacklist "%{buildroot}%{_sysconfdir}/modprobe.d/50-blacklist.conf"
 %endif
 install -pm644 modprobe.conf/modprobe.conf.local "%{buildroot}%{_sysconfdir}/modprobe.d/99-local.conf"
@@ -191,7 +191,7 @@ fi
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/00-system.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
-%if 0%{?suse_version} >= 1500
+%if 0%{?suse_version} >= 1550 || 0%{?sle_version} >= 150100
 %config(noreplace) %{_sysconfdir}/modprobe.d/50-blacklist.conf
 %endif
 %config(noreplace) %{_sysconfdir}/modprobe.d/99-local.conf
