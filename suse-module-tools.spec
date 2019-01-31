@@ -17,7 +17,7 @@
 
 
 Name:           suse-module-tools
-Version:        15.0.2
+Version:        15.0.3
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
@@ -31,8 +31,6 @@ Requires:       grep
 Requires:       gzip
 Recommends:	mkinitrd
 # module-init-tools in older distros, kmod-compat in later ones
-# we could use "modutils" here, but that might blow up some images
-# and/or OBS builds.
 Requires:       /sbin/depmod
 Requires:       rpm
 Requires:       sed
