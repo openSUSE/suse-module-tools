@@ -239,6 +239,7 @@ done
 %config(noreplace) %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
 %if 0%{?suse_version} >= 1550 || 0%{?sle_version} >= 150100
 %config(noreplace) %{_sysconfdir}/modprobe.d/50-blacklist.conf
+%config(noreplace) %{_sysconfdir}/modprobe.d/60-blacklist_fs-*.conf
 %endif
 %config(noreplace) %{_sysconfdir}/modprobe.d/99-local.conf
 %dir %{_sysconfdir}/depmod.d
