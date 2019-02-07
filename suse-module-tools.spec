@@ -119,7 +119,7 @@ install -pm 644 sg.conf "%{buildroot}%{_sysconfdir}/modules-load.d"
 
 mkdir -p %{buildroot}%{_defaultlicensedir}
 
-%if 0%{?suse_version} >= 1500
+%if 0%{?suse_version} >= 1550 || 0%{?sle_version} >= 150100
 for mod in %{fs_blacklist}; do
     echo "\
 # The $mod file system is blacklisted by default because it isn't actively
