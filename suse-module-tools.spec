@@ -210,7 +210,7 @@ fi
 # modules. Modules loaded at installation time will not be
 # blacklisted (the blacklist statement is commented out).
 # config(noreplace) makes sure that this is not overwritten by rpm.
-%if 0%{?suse_version} >= 1500
+%if 0%{?suse_version} >= 1550 || 0%{?sle_version} >= 150100
 for mod in %{fs_blacklist}; do
 	conf=%{_sysconfdir}/modprobe.d/60-blacklist_fs-"$mod".conf
 	if [[ -f "$conf" ]] && \
