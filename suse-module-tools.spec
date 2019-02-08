@@ -213,7 +213,7 @@ fi
 %if 0%{?suse_version} >= 1550 || 0%{?sle_version} >= 150100
 for mod in %{fs_blacklist}; do
 	conf=%{_sysconfdir}/modprobe.d/60-blacklist_fs-"$mod".conf
-	if [[ -f "$conf" ]] && \
+	if [ -f "$conf" ] && \
 	    grep -q '^# __THIS FILE MAY BE MODIFIED__$' "$conf" && \
             sed '/^nodev/d;' /proc/filesystems | grep -q "\<$mod\>"; then
 		sed -i '
