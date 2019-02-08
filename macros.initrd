@@ -10,6 +10,6 @@
 
 %regenerate_initrd_posttrans \
 	if test -x /usr/lib/module-init-tools/regenerate-initrd-posttrans; then \
-		/bin/bash -${-/e/} /usr/lib/module-init-tools/regenerate-initrd-posttrans \
+		/bin/bash -c 'set +e; /usr/lib/module-init-tools/regenerate-initrd-posttrans' \
 	fi \
 	%nil
