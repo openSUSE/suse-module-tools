@@ -123,7 +123,7 @@ mkdir -p %{buildroot}%{_defaultlicensedir}
 for mod in %{fs_blacklist}; do
     echo "\
 # The $mod file system is blacklisted by default because it isn't actively
-# supported by SUSE, not well maintained, and may have security vulnerabilites.
+# supported by SUSE, not well maintained, or may have security vulnerabilites.
 # To enable autoloading the $mod file system module, comment out the
 # \"blacklist $mod\" statement below. ENABLE AT YOUR OWN RISK.
 #
