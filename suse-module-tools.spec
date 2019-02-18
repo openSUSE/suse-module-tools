@@ -17,14 +17,14 @@
 
 # List of legacy file systems to be blacklisted by default
 %if 0%{?is_opensuse}
-%global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs f2fs hfs hpfs jffs2 jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ubifs ufs
+%global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs f2fs hfs hpfs jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ufs
 %else
 # SLE only ships a few of them
 %global fs_blacklist cramfs ufs
 %endif
 
 Name:           suse-module-tools
-Version:        15.1.10
+Version:        15.1.11
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
