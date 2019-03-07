@@ -40,5 +40,11 @@ alias iucv9               netiucv
 
 alias block-major-35 xpram
 
+# The framebuffer console is built as a module on s390, because it is
+# useful only to a KVM guest. But then it should be loaded together
+# with the corresponding DRM driver.
+# SUSE INITRD: virtio_gpu REQUIRES fbcon
+softdep virtio_gpu post: fbcon
+
 # end of s390 part for modprobe.conf
 
