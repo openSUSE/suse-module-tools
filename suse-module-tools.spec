@@ -1,7 +1,7 @@
 #
 # spec file for package suse-module-tools
 #
-# Copyright (c) 2016 SUSE LINUX GmbH, Nuernberg, Germany.
+# Copyright (c) 2019 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -12,7 +12,7 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-# Please submit bugfixes or comments via http://bugs.opensuse.org/
+# Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
 
@@ -31,7 +31,7 @@ PreReq:         coreutils rpm
 # XXX: this should be nm OR eu-nm, the script works with both
 PreReq:         /usr/bin/eu-nm /bin/sed
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
-License:        GPL-2.0+
+License:        GPL-2.0-or-later
 Group:          System/Base
 Source:         README.SUSE
 Source2:        modprobe.conf.tar.bz2
@@ -47,13 +47,13 @@ Source11:       macros.initrd
 Source12:       regenerate-initrd-posttrans
 Source13:       50-kernel-uname_r.conf
 Source14:       modhash
-Source15:	LICENSE
+Source15:       LICENSE
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 # This release requires the dracut fix for bsc#1127891
 # for the csiostor->cxgb4 softdep, but only on SLE12-SP4 and
 # later, because there cxgb4 further dependencies.
 %if 0%{?sle_version} >= 120400
-Conflicts:     dracut < 44.2
+Conflicts:      dracut < 44.2
 %endif
 
 %description
