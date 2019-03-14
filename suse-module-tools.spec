@@ -47,6 +47,7 @@ Source11:       macros.initrd
 Source12:       regenerate-initrd-posttrans
 Source13:       50-kernel-uname_r.conf
 Source14:       modhash
+Source15:	LICENSE
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -57,6 +58,7 @@ module-init-tools, whichever implementation you choose to install.
 
 %prep
 %setup -Tcqa2
+cp %{SOURCE15} .
 
 %build
 
@@ -166,6 +168,7 @@ fi
 %config            /etc/depmod.d/00-system.conf
 %config /etc/rpm/macros.initrd
 %_docdir/module-init-tools
+%license LICENSE
 /usr/bin/modhash
 /usr/bin/kmp-install
 /usr/bin/modsign-verify
