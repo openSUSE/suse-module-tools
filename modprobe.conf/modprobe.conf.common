@@ -96,4 +96,10 @@ softdep uas pre: usb_storage
 # service packs (bsc#937216).
 softdep bridge post: br_netfilter
 
+# bsc#1100989
+# The indirect dependencies ptp and pps_core can be removed
+# once the dracut fix for bsc#1127891 (dracut) is available.
+# SUSE INITRD: csiostor REQUIRES cxgb4 ptp pps_core
+softdep csiostor pre: cxgb4
+
 # end of common part for modprobe.conf
