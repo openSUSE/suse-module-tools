@@ -15,6 +15,7 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
+
 # List of legacy file systems to be blacklisted by default
 %if 0%{?is_opensuse}
 %global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs f2fs hfs hpfs jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ufs
@@ -41,11 +42,11 @@ Requires:       sed
 # Use weak dependencies for mkinitrd and kmod in order to
 # keep Ring0 lean. In normal deployments, these packages
 # will be available anyway.
-Recommends:	mkinitrd
+Recommends:     mkinitrd
 %if 0%{?suse_version} >= 1315
-Recommends:	kmod
+Recommends:     kmod
 %else
-Recommends:	modutils
+Recommends:     modutils
 %endif
 
 %description
