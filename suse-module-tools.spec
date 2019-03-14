@@ -17,7 +17,7 @@
 
 
 Name:           suse-module-tools
-Version:        12.4
+Version:        12.5
 Release:        0
 Requires:       /sbin/depmod
 Requires:       /sbin/mkinitrd
@@ -49,6 +49,12 @@ Source13:       50-kernel-uname_r.conf
 Source14:       modhash
 Source15:	LICENSE
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
+# This release requires the dracut fix for bsc#1127891
+# for the csiostor->cxgb4 softdep, but only on SLE12-SP4 and
+# later, because there cxgb4 further dependencies.
+%if 0%{?sle_version} >= 120400
+Conflicts:     dracut < 44.2
+%endif
 
 %description
 This package contains helper scripts for KMP installation and
