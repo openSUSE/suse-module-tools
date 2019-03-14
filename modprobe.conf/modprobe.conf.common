@@ -91,4 +91,9 @@ options ch init=0
 softdep usb_storage pre: uas
 softdep uas pre: usb_storage
 
+# Since kernel 3.18 br_netfilter is needed to pass bridged packets to
+# netfilter. Load br_netfilter automatically to avoid regressions in SLE12 SP2+
+# service packs (bsc#937216).
+softdep bridge post: br_netfilter
+
 # end of common part for modprobe.conf
