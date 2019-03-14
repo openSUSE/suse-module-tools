@@ -17,7 +17,7 @@
 
 
 Name:           suse-module-tools
-Version:        15.0.3
+Version:        15.0.4
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
@@ -34,6 +34,8 @@ Recommends:	mkinitrd
 Requires:       /sbin/depmod
 Requires:       rpm
 Requires:       sed
+# This release requires the dracut fix for bsc#1127891
+Conflicts:	dracut < 44.2
 
 %description
 This package contains helper scripts for KMP installation and
