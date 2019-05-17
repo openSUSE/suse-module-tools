@@ -101,9 +101,13 @@ install -d -m 755 "%{buildroot}%{_libexecdir}/module-init-tools"
 install -pm 755 weak-modules{,2} "%{buildroot}%{_libexecdir}/module-init-tools/"
 install -pm 755 driver-check.sh "%{buildroot}%{_libexecdir}/module-init-tools/"
 
+%if 0%{?suse_version} < 1550
 # rpm macros and helper
-install -d -m 755 "%{buildroot}%{_sysconfdir}/rpm"
-install -pm 644 "macros.initrd" "%{buildroot}%{_sysconfdir}/rpm/"
+# The RPM Macros have been moved to the package rpm-config-SUSE after CODE15, thus are no longer
+# shipped here
+install -d -m 755 "%{buildroot}%{_rpmmacrodir}"
+install -pm 644 "macros.initrd" "%{buildroot}%{_rpmmacrodir}"
+%endif
 install -pm 755 "regenerate-initrd-posttrans" "%{buildroot}%{_libexecdir}/module-init-tools/"
 
 install -d -m 755 "%{buildroot}%{_prefix}/bin"
@@ -247,7 +251,9 @@ done
 %config(noreplace) %{_sysconfdir}/modprobe.d/99-local.conf
 %dir %{_sysconfdir}/depmod.d
 %config %{_sysconfdir}/depmod.d/00-system.conf
-%config %{_sysconfdir}/rpm/macros.initrd
+%if 0%{?suse_version} < 1550
+%{_rpmmacrodir}/macros.initrd
+%endif
 %{_bindir}/modhash
 %{_bindir}/kmp-install
 %{_libexecdir}/module-init-tools
