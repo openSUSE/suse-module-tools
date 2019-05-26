@@ -92,7 +92,7 @@ doit() {
 }
 
 filter_basenames() {
-    sed -rn 's:.*\<lib/modules/.*/([^/]*\.ko)$:\1:p'
+    sed -rn 's:.*\<lib/modules/.*/([^/]*\.ko(\.[gx]z)?)$:\1:p'
 }
 
 # Name of the symlink that makes a module available to a given kernel
@@ -271,7 +271,7 @@ find_kmps() {
 	    continue
 	fi
 	rpm -ql --nodigest --nosignature "$kmp" \
-	    | grep -Ee '^/lib/modules/[^/]+/.+\.ko$' \
+	    | grep -Ee '^/lib/modules/[^/]+/.+\.ko(\.[gx]z)?$' \
 	    > $tmpdir/modules-$kmp
 	if [ $? != 0 ]; then
 	    echo "WARNING: $kmp does not contain any kernel modules" >&2
