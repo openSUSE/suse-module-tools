@@ -546,10 +546,6 @@ remove_kmp() {
             continue
         esac
 	[ -d $dir -a -f /boot/System.map-$krel ] || continue
-	if opt_debug=1 has_unresolved_symbols "$krel" "/"; then
-	    echo "Warning: /lib/modules/$krel is inconsistent" >&2
-	    echo "Warning: weak-updates symlinks might not be created" >&2
-	fi
 	if kmp_is_present $kmp $krel; then
             if [ $krel != "$(cat $tmpdir/krel-$kmp)" ]; then
                 remove_kmp_modules "$kmp" "$krel"
@@ -573,6 +569,10 @@ remove_kmp() {
 		run_depmod_and_mkinitrd "$krel" <$tmpdir/basenames-$kmp || \
 		    status=1
 	    fi
+	fi
+	if opt_debug=1 has_unresolved_symbols "$krel" "/"; then
+	    echo "Warning: /lib/modules/$krel is inconsistent" >&2
+	    echo "Warning: weak-updates symlinks might not be created" >&2
 	fi
     done
     return $status
