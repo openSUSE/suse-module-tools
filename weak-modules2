@@ -546,11 +546,14 @@ remove_kmp() {
             continue
         esac
 	[ -d $dir -a -f /boot/System.map-$krel ] || continue
-	if opt_debug=1 has_unresolved_symbols "$krel" "/"; then
-	    echo "Warning: /lib/modules/$krel is inconsistent" >&2
-	    echo "Warning: weak-updates symlinks might not be created" >&2
-	fi
 	if kmp_is_present $kmp $krel; then
+	    local other_found=0 inconsistent=0
+
+	    if opt_debug=1 has_unresolved_symbols "$krel" "/" \
+			>$tmpdir/unresolved-"$krel" 2>&1; then
+		inconsistent=1
+	    fi
+
             if [ $krel != "$(cat $tmpdir/krel-$kmp)" ]; then
                 remove_kmp_modules "$kmp" "$krel"
             fi
@@ -559,6 +562,7 @@ remove_kmp() {
 	    while read other_kmp; do
 		[ "$kmp" != "$other_kmp" ] || continue
 
+		other_found=1
 		if can_replace_kmp "" "$other_kmp" "$krel"; then
 		    add_kmp_modules "$other_kmp" "$krel"
 		    break
@@ -570,9 +574,18 @@ remove_kmp() {
 		| run_depmod_and_mkinitrd "$krel" || status=1
 	    else
 		log "Package $kmp removed from kernel $krel"
+		if [ $other_found -eq 1 ]; then
+		    log "Weak-updates symlinks to no other $kmpshort package could be created"
+		    if [ $inconsistent -eq 1 ]; then
+			echo "Warning: /lib/modules/$krel was inconsistent before removal of $kmp" >&2
+			[ -s $tmpdir/unresolved-"$krel" ] && \
+			    cat $tmpdir/unresolved-"$krel"
+		    fi
+		fi
 		run_depmod_and_mkinitrd "$krel" <$tmpdir/basenames-$kmp || \
 		    status=1
 	    fi
+	    rm -f $tmpdir/unresolved-"$krel"
 	fi
     done
     return $status
