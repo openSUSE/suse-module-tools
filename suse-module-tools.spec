@@ -17,6 +17,7 @@
 
 # Define _rpmmacrodir if it's not defined yet
 %{!?_rpmmacrodir: %global _rpmmacrodir %{_rpmconfigdir}/macros.d}
+%define modules_load_dir /usr/lib/modules-load.d
 
 # List of legacy file systems to be blacklisted by default
 %if 0%{?is_opensuse}
@@ -123,8 +124,8 @@ install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_libexecdir}/systemd/syste
 
 # Ensure that the sg driver is loaded early (bsc#1036463)
 # Not needed in SLE11, where sg is loaded via udev rule.
-install -d -m 755 "%{buildroot}%{_sysconfdir}/modules-load.d"
-install -pm 644 sg.conf "%{buildroot}%{_sysconfdir}/modules-load.d"
+install -d -m 755 "%{buildroot}%{modules_load_dir}"
+install -pm 644 sg.conf "%{buildroot}%{modules_load_dir}"
 
 mkdir -p %{buildroot}%{_defaultlicensedir}
 
@@ -261,8 +262,8 @@ done
 %{_libexecdir}/module-init-tools
 %exclude %{_libexecdir}/module-init-tools/weak-modules
 %{_libexecdir}/systemd/system/systemd-sysctl.service.d
-%dir %{_sysconfdir}/modules-load.d
-%config(noreplace) %{_sysconfdir}/modules-load.d/sg.conf
+%dir %{modules_load_dir}
+%{modules_load_dir}/sg.conf
 
 %files legacy
 %defattr(-,root,root)
