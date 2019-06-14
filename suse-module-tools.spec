@@ -15,6 +15,8 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
+# Define _rpmmacrodir if it's not defined yet
+%{!?_rpmmacrodir: %global _rpmmacrodir %{_rpmconfigdir}/macros.d}
 
 # List of legacy file systems to be blacklisted by default
 %if 0%{?is_opensuse}
