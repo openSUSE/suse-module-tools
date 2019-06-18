@@ -176,7 +176,7 @@ check_kmp()
 	if ! rpm -q -R "$kmp" | grep -Eq "$req_re"; then
 		error "$kmp does not have proper dependencies"
 	fi
-	exec 3< <(sed -rn 's:^(/lib/modules)?/([^/]*)/(.*\.ko)$:\1 \2 \3:p' \
+	exec 3< <(sed -rn 's:^(/lib/modules)?/([^/]*)/(.*\.ko(\.[gx]z)?)$:\1 \2 \3:p' \
 		"$tmp/rpms/$kmp")
 	while read prefix krel path <&3; do
 		found_module=true
@@ -331,7 +331,7 @@ for krel in /lib/modules/*/kernel; do
 	check_krel "$krel"
 done
 
-modules=($(find /lib/modules/ -name '*.ko'))
+modules=($(find /lib/modules/ -name '*.ko' -o -name '*.ko.[gx]z'))
 for module in "${modules[@]}"; do
 	check_ko "$module"
 done

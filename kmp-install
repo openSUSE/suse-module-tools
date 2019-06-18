@@ -59,7 +59,7 @@ sub add_package {
 sub add_module {
 	my ($package, $path) = @_;
 
-	return unless $path =~ m@^/lib/modules/([^/]+)/.*/([^/]+\.ko)$@;
+	return unless $path =~ m@^/lib/modules/([^/]+)/.*/([^/]+\.ko(\.[gx]z)?)$@;
 	my ($version, $name) = ($1, $2);
 	$name =~ s/-/_/g;
 	$package->{modules} ||= [];
@@ -74,7 +74,7 @@ sub query_installed_kmps {
 	while (<$pipe>) {
 		chomp;
 		my ($n, $v, $r, $a, $file) = split(' ');
-		next unless $file =~ m@^/lib/modules/.*/.*/.*\.ko$@;
+		next unless $file =~ m@^/lib/modules/.*/.*/.*\.ko(\.[gx]z)?$@;
 		my $nvra = "$n-$v-$r.$a";
 		if (!exists($seen{$nvra})) {
 			add_package($res, [$n, "$v-$r", $a]);
