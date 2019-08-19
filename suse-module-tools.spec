@@ -46,7 +46,6 @@ Source10:       kmp-install
 Source11:       macros.initrd
 Source12:       regenerate-initrd-posttrans
 Source13:       50-kernel-uname_r.conf
-Source14:       modhash
 Source15:       LICENSE
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 # This release requires the dracut fix for bsc#1127891
@@ -103,8 +102,6 @@ install -pm 755 "%_sourcedir/regenerate-initrd-posttrans" "$b/usr/lib/module-ini
 install -d -m 755 "$b/usr/bin"
 install -pm 755 %_sourcedir/modsign-verify "$b/usr/bin/"
 install -pm 755 %_sourcedir/kmp-install "$b/usr/bin/"
-# modhash for calculating hash of signed kernel module
-install -pm 755 %_sourcedir/modhash "$b/usr/bin/"
 
 # systemd service to load /boot/sysctl.conf-`uname -r`
 install -d -m 755 "$b/usr/lib/systemd/system/systemd-sysctl.service.d"
@@ -175,7 +172,6 @@ fi
 %config /etc/rpm/macros.initrd
 %_docdir/module-init-tools
 %license LICENSE
-/usr/bin/modhash
 /usr/bin/kmp-install
 /usr/bin/modsign-verify
 /usr/lib/module-init-tools
