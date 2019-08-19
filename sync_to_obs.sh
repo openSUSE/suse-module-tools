@@ -8,12 +8,15 @@ ME=$(basename "$0")
 rm -f modprobe.conf.tar.bz2
 dt=$(git log --oneline -n 1 --format=%cI -- modprobe.conf)
 # Use "-H ustar" to avoid time stamps in archive
-tar cj --owner=0 --group=0 --numeric-owner \
+tar cvvj --owner=0 --group=0 --numeric-owner --exclude="*~" \
     --mtime "$dt" -H ustar \
     -f modprobe.conf.tar.bz2 modprobe.conf
 rsync -ric \
       --exclude "$ME" \
       --exclude '*~' \
       --exclude .git \
+      --exclude .osc \
+      --exclude \*.changes \
       --exclude modprobe.conf \
+      --delete \
       ./ "$1"
