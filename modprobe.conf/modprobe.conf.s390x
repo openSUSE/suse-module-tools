@@ -1,0 +1,24 @@
+# begin of s390x part for modprobe.conf
+
+# Copied over from modprobe.conf.s390
+# Dropped obviously outdated statements.
+alias iucv0               netiucv
+alias iucv1               netiucv
+alias iucv2               netiucv
+alias iucv3               netiucv
+alias iucv4               netiucv
+alias iucv5               netiucv
+alias iucv6               netiucv
+alias iucv7               netiucv
+alias iucv8               netiucv
+alias iucv9               netiucv
+
+alias block-major-35 xpram
+
+# The framebuffer console is built as a module on s390, because it is
+# useful only to a KVM guest. But then it should be loaded together
+# with the corresponding DRM driver.
+# SUSE INITRD: virtio_gpu REQUIRES fbcon
+softdep virtio_gpu post: fbcon
+
+# end of s390x part for modprobe.conf
