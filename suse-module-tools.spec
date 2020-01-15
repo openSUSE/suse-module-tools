@@ -1,7 +1,7 @@
 #
 # spec file for package suse-module-tools
 #
-# Copyright (c) 2019 SUSE LINUX GmbH, Nuernberg, Germany.
+# Copyright (c) 2020 SUSE LLC
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -14,6 +14,7 @@
 
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
+
 
 # Define _rpmmacrodir if it's not defined yet
 %{!?_rpmmacrodir: %global _rpmmacrodir %{_rpmconfigdir}/macros.d}
@@ -37,7 +38,7 @@ Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
 Group:          System/Base
-Url:            https://github.com/openSUSE/suse-module-tools
+URL:            https://github.com/openSUSE/suse-module-tools
 Source0:        %{name}-%{version}.tar.xz
 Source1:        %{name}.rpmlintrc
 Requires:       coreutils
