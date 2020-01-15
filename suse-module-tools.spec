@@ -16,6 +16,10 @@
 #
 
 
+%if 0%{?sle_version} >= 120200 && 0%{?is_opensuse} == 0
+%global softdep_br_netfilter 1
+%endif
+
 Name:           suse-module-tools
 Version:        15.0.6
 Release:        0
@@ -74,6 +78,11 @@ install -d -m 755 "%{buildroot}%{_sysconfdir}/modprobe.d"
 install -pm644 "10-unsupported-modules.conf" \
 	"%{buildroot}%{_sysconfdir}/modprobe.d/"
 install -pm644 00-system.conf "%{buildroot}%{_sysconfdir}/modprobe.d/"
+
+%if 0%{?softdep_br_netfilter}
+# softdep bridge->br_netfilter, SLE only
+install -pm644 modprobe.conf/00-system-937216.conf %{buildroot}%{_sysconfdir}/modprobe.d
+%endif
 install -pm644 modprobe.conf/modprobe.conf.local "%{buildroot}%{_sysconfdir}/modprobe.d/99-local.conf"
 install -d -m 755 "%{buildroot}%{_sysconfdir}/depmod.d"
 install -pm 644 "depmod-00-system.conf" \
@@ -185,6 +194,9 @@ fi
 %doc README.SUSE
 %dir %{_sysconfdir}/modprobe.d
 %config %{_sysconfdir}/modprobe.d/00-system.conf
+%if 0%{?softdep_br_netfilter}
+%config(noreplace) %{_sysconfdir}/modprobe.d/00-system-937216.conf
+%endif
 %config(noreplace) %{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/99-local.conf
 %dir %{_sysconfdir}/depmod.d
