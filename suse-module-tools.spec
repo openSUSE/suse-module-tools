@@ -17,7 +17,7 @@
 
 
 Name:           suse-module-tools
-Version:        12.9
+Version:        12.10
 Release:        0
 Requires:       /sbin/depmod
 Requires:       /sbin/mkinitrd
