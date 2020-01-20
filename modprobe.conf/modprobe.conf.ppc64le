@@ -4,7 +4,6 @@
 options ib_mthca catas_reset_disable=1
 
 # bsc#1142152 papr_scm requires libnvdimm
-# SUSE INITRD: papr_scm REQUIRES libnvdimm
+# SUSE INITRD: libnvdimm REQUIRES papr_scm
 
 # end of ppc64le part for modprobe.conf
-
