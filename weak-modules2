@@ -284,7 +284,8 @@ find_kmps() {
 
     printf "%s\n" $tmpdir/basenames-* \
     | sed -re "s:$tmpdir/basenames-::" \
-    | /usr/lib/rpm/rpmsort -r \
+    | "$(dirname "$0")/luarpmsort" \
+    | tac \
     > $tmpdir/kmps
 }
 

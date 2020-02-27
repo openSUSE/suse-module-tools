@@ -1,0 +1,44 @@
+#!/bin/bash
+rpmsort() {
+	script='
+function parse(ver)
+	local epoch, version, release = 0, ver, 0
+	_, eend, e = ver:find("^(%d+):")
+	if eend then
+		ver = ver:sub(eend + 1)
+		version = ver
+		epoch = e
+	end
+	_, _, v, r = ver:find("(.+)%-(.+)$")
+	if v then
+		version = v
+		release = r
+	end
+	return epoch, version, release
+end
+
+function pkgvercmp(a, b)
+	local ae, av, ar = parse(a)
+	local be, bv, br = parse(b)
+
+	local ecmp = rpm.vercmp(ae, be)
+	if ecmp ~= 0 then return ecmp end
+
+	local vcmp = rpm.vercmp(av, bv)
+	if vcmp ~= 0 then return vcmp end
+
+	return rpm.vercmp(ar, br)
+end	
+
+vers = {}
+for line in io.stdin:lines() do
+	table.insert(vers, line)
+end
+table.sort(vers, function(a, b) return pkgvercmp(a, b) == -1 end)
+print(table.concat(vers, "\n"))
+'
+
+	rpm --eval "%{lua: ${script}}"
+}
+
+rpmsort
