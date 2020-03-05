@@ -224,8 +224,8 @@ if [ -n "$add_modules" ]; then
 		    weak_krel=$(krel_of_module "$weak_module")
 		    if [ "$weak_krel" != "$module_krel" ] &&
 		       [ "$(printf "%s\n" "$weak_krel" "$module_krel" \
-			    | /usr/lib/rpm/rpmsort | head -n 1)" = \
-			 "$module_krel" ]; then
+			    | "$(dirname "$0")/luarpmsort" | head -n 1)" = \
+			 "$weak_krel" ]; then
 			# Keep modules from more recent kernels.
 			[ -n "$verbose" ] && echo \
 "Keeping module ${module##*/} from kernel $weak_krel for kernel $krel"
@@ -243,7 +243,7 @@ if [ -n "$add_modules" ]; then
 elif [ -n "$remove_modules" ]; then
     read_modules_list || exit 1
     if [ ${#modules[@]} -gt 0 ]; then
-	krels=($(ls /lib/modules/ | /usr/lib/rpm/rpmsort -r))
+	krels=($(ls /lib/modules/ | "$(dirname "$0")/luarpmsort"))
 	for krel in "${krels[@]}"; do
 	    [ -e /boot/symvers-$krel.gz ] || continue
 	    for ((n = 0; n < ${#modules[@]}; n++)); do
@@ -281,7 +281,7 @@ elif [ -n "$add_kernel" ]; then
 	     "not found" >&2
 	exit 1
     fi
-    for krel in $(ls /lib/modules/ | /usr/lib/rpm/rpmsort -r); do
+    for krel in $(ls /lib/modules/ | "$(dirname "$0")/luarpmsort"); do
 	[ "$add_krel" = "$krel" ] && continue
 	[ -d /lib/modules/$krel/updates ] || continue
 	for module in $(find /lib/modules/$krel/updates -name '*.ko'); do

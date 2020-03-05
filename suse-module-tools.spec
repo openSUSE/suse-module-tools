@@ -111,6 +111,7 @@ install -pm 644 "depmod-00-system.conf" \
 
 # "/usr/lib/module-init-tools" name hardcoded in KMPs, mkinitrd, etc.
 install -d -m 755 "%{buildroot}/usr/lib/module-init-tools"
+install -pm 755 luarpmsort "%{buildroot}/usr/lib/module-init-tools/"
 install -pm 755 weak-modules{,2} "%{buildroot}/usr/lib/module-init-tools/"
 install -pm 755 driver-check.sh "%{buildroot}/usr/lib/module-init-tools/"
 
