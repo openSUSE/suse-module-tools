@@ -301,7 +301,7 @@ check_rpm "$smt"
 mkdir -p "$tmp/rpms"
 found_kernel=false
 for rpm in $(rpm -qa --qf '%{n}-%{v}-%{r}\n' 'kernel-*' '*-kmp-*' | \
-		/usr/lib/rpm/rpmsort); do
+		"$(dirname "$0")/luarpmsort" | tac); do
 	case "$rpm" in
 	kernel-source-* | kernel-syms-* | kernel-*-debug* | kernel-*-man-* | \
 	kernel-*-devel-* | kernel-firmware-* | kernel-coverage-* | \
