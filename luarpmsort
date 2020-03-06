@@ -1,6 +1,6 @@
 #!/bin/bash
 rpmsort() {
-        direction=$1
+	direction=$1
 	script='
 function parse(ver)
 	local epoch, version, release = 0, ver, 0
@@ -43,24 +43,28 @@ print(table.concat(vers, "\n"))
 }
 
 usage() {
-    cat >&2 <<EOF
-$0 - sort standard input according to rpm version sorting conventions,
-     using rpm's built-in lua interpreter
+	cat >&2 <<EOF
+$0 - sort input according to rpm version sorting conventions
+
+Expects rpm package versions separated by newlines as input and outputs
+them sorted according to rpm version sorting conventions, with old versions
+at the top.
+
 Options:
 	-r|--reverse	sort backwards
 	-h|--help	print this help
 EOF
-    exit 0
+	exit 0
 }
 
 DIRECTION=-1
 while [[ $# -gt 0 ]]; do
-    case $1 in
-	-r|--reverse) DIRECTION=1;;
-	-h|--help) usage;;
-	*)  echo "$0: invalid parameter $1 ignored" >&2;;
-    esac
-    shift
+	case $1 in
+		-r|--reverse) DIRECTION=1;;
+		-h|--help) usage;;
+		*)  echo "$0: invalid parameter $1 ignored" >&2;;
+	esac
+	shift
 done
 
 rpmsort "$DIRECTION"
