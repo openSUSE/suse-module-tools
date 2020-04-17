@@ -88,8 +88,9 @@ softdep ohci-hcd pre: ehci-hcd
 options ch init=0
 
 # uas devices can be unpredictably a fallback for both drivers must be present
-softdep usb_storage pre: uas
-softdep uas pre: usb_storage
+# (bnc#862397)
+# but avoid circular dependency (bsc#1168661)
+softdep usb_storage post: uas
 
 # bsc#1100989: cxgb4 needs to be loaded before csiostor (Chelsio request)
 # SUSE INITRD: csiostor REQUIRES cxgb4
