@@ -56,8 +56,6 @@
 # kmps: list of kmps, newest first
 #
 
-RPMSORT="$(dirname "$0")/luarpmsort"
-
 find_depmod() {
     local _d
 
@@ -286,7 +284,7 @@ find_kmps() {
 
     printf "%s\n" $tmpdir/basenames-* \
     | sed -re "s:$tmpdir/basenames-::" \
-    | "$RPMSORT" -r \
+    | /usr/lib/rpm/rpmsort -r \
     > $tmpdir/kmps
 }
 

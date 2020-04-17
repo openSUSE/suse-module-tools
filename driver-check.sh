@@ -3,7 +3,6 @@
 VERSION="0.6"
 MAINTAINER="Martin Wilck <mwilck@suse.com>"
 USAGE="Usage: ${0##*/} [-o|--out output-file]"
-RPMSORT="$(dirname "$0")/luarpmsort"
 
 errors=0
 warnings=0
@@ -302,7 +301,7 @@ check_rpm "$smt"
 mkdir -p "$tmp/rpms"
 found_kernel=false
 for rpm in $(rpm -qa --qf '%{n}-%{v}-%{r}\n' 'kernel-*' '*-kmp-*' | \
-		"$RPMSORT"); do
+		/usr/lib/rpm/rpmsort); do
 	case "$rpm" in
 	kernel-source-* | kernel-syms-* | kernel-*-debug* | kernel-*-man-* | \
 	kernel-*-devel-* | kernel-firmware-* | kernel-coverage-* | \
