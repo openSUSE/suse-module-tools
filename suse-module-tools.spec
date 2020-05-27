@@ -76,10 +76,6 @@ SLE 11 and later.
 %setup -q
 
 %build
-%if 0%{?is_opensuse} == 0
-sed -ri 's/^( *allow_unsupported_modules *) 1/\1 0/' \
-	10-unsupported-modules.conf
-%endif
 
 %install
 # now assemble the parts for modprobe.conf
