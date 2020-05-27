@@ -16,7 +16,7 @@
 #
 
 
-%if 0%{?sle_version} >= 120200 && 0%{?is_opensuse} == 0
+%if 0%{?sle_version} >= 120200 && 0%{?sle_version} < 150000
 %global softdep_br_netfilter 1
 %endif
 
