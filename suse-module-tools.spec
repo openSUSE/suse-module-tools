@@ -36,12 +36,15 @@ Group:          System/Base
 URL:            https://github.com/openSUSE/suse-module-tools
 Source0:        %{name}-%{version}.tar.xz
 Source1:        %{name}.rpmlintrc
+Requires:       /usr/bin/grep
+Requires:       /usr/bin/gzip
+Requires:       /usr/bin/sed
 Requires:       coreutils
 Requires:       findutils
-Requires:       grep
-Requires:       gzip
 Requires:       rpm
-Requires:       sed
+Requires(post): /usr/bin/grep
+Requires(post): /usr/bin/sed
+Requires(post): coreutils
 # Use weak dependencies for mkinitrd and kmod in order to
 # keep Ring0 lean. In normal deployments, these packages
 # will be available anyway.
