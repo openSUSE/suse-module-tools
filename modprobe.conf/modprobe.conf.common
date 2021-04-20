@@ -96,4 +96,7 @@ softdep usb_storage post: uas
 # SUSE INITRD: csiostor REQUIRES cxgb4
 softdep csiostor pre: cxgb4
 
+# dm-crypt requires essiv
+softdep dm-crypt pre: essiv
+
 # end of common part for modprobe.conf
