@@ -73,7 +73,7 @@ softdep ohci-hcd pre: ehci-hcd
 
 # cifs calls load_nls()
 # FIXME: determine the proper nls module based on fstab options instead
-softdep nls pre: cifs: nls_utf8
+# SUSE INITRD: cifs REQUIRES nls_utf8
 
 # SCSI changers can take 1h to initialize on module load,
 # triggering udev timeouts (bnc#760274).
