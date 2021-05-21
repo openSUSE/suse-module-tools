@@ -45,10 +45,10 @@ Requires:       rpm
 Requires(post): /usr/bin/grep
 Requires(post): /usr/bin/sed
 Requires(post): coreutils
-# Use weak dependencies for mkinitrd and kmod in order to
+# Use weak dependencies for dracut and kmod in order to
 # keep Ring0 lean. In normal deployments, these packages
 # will be available anyway.
-Recommends:     mkinitrd
+Recommends:     dracut
 %if 0%{?suse_version} >= 1315
 Recommends:     kmod
 %else
