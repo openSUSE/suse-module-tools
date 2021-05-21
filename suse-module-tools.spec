@@ -64,17 +64,6 @@ modprobe. These utilities are provided by kmod-compat or
 module-init-tools, whichever implementation you choose to install.
 
 
-%package legacy
-Summary:        Legacy "weak-modules" script for Code10
-Group:          System/Base
-Requires:       %{name}
-Requires:       binutils
-
-%description legacy
-This package contains the legacy "weak-modules" script for kernel
-module package (KMP) support. It was replaced by "weak-modules2" in
-SLE 11 and later.
-
 %prep
 %setup -q
 
@@ -105,7 +94,7 @@ install -pm 644 "depmod-00-system.conf" \
 
 # "/usr/lib/module-init-tools" name hardcoded in KMPs, mkinitrd, etc.
 install -d -m 755 "%{buildroot}/usr/lib/module-init-tools"
-install -pm 755 weak-modules{,2} "%{buildroot}/usr/lib/module-init-tools/"
+install -pm 755 weak-modules2 "%{buildroot}/usr/lib/module-init-tools/"
 install -pm 755 driver-check.sh "%{buildroot}/usr/lib/module-init-tools/"
 
 %if 0%{?suse_version} < 1550
@@ -268,16 +257,11 @@ done
 %endif
 %{_bindir}/kmp-install
 /usr/lib/module-init-tools
-%exclude /usr/lib/module-init-tools/weak-modules
 %{_unitdir}/systemd-sysctl.service.d
 %dir %{modules_load_dir}
 %{modules_load_dir}/sg.conf
 %ifarch ppc64le
 /usr/lib/systemd/system-generators
 %endif
-
-%files legacy
-%defattr(-,root,root)
-/usr/lib/module-init-tools/weak-modules
 
 %changelog
