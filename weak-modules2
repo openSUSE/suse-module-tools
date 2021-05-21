@@ -56,6 +56,8 @@
 # kmps: list of kmps, newest first
 #
 
+: ${DRACUT:=/usr/bin/dracut}
+
 find_depmod() {
     local _d
 
@@ -332,8 +334,8 @@ needs_initrd() {
         return 1
     fi
 
-    if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x /usr/bin/dracut ] ; then
-	echo "Please run \"dracut -f /boot/initrd-$krel\" as soon as your system is complete." >&2
+    if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
+	echo "Please run \"$DRACUT -f /boot/initrd-$krel\" as soon as your system is complete." >&2
 	return 1
     fi
     # KMPs can force initrd rebuild with %kernel_module_package -b that sets
@@ -380,7 +382,7 @@ run_depmod_build_initrd() {
 		mkdir -p /run/regenerate-initrd
 		touch /run/regenerate-initrd/$image-$krel
 	    else
-		doit /usr/bin/dracut -f /boot/initrd-$krel
+		doit "$DRACUT" -f /boot/initrd-$krel
 		status=$?
 	    fi
 	else
