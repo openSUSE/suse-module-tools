@@ -13,6 +13,12 @@
 
 shopt -s nullglob
 
+: ${DRACUT:=/usr/bin/dracut}
+if [[ ! -x "$DRACUT" ]]; then
+    echo "ERROR: $DRACUT not found" >&2
+    exit 1
+fi
+
 dir=/run/regenerate-initrd
 
 if ! test -d "$dir"; then
@@ -20,8 +26,8 @@ if ! test -d "$dir"; then
 fi
 for f in "$dir"/*; do
 	# check if we are in a build chroot
-	if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x /sbin/mkinitrd ] ; then
-		echo "Please run mkinitrd as soon as your system is complete." >&2
+	if ! [  -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
+		echo "Please run \"$DRACUT -f --regenerate-all\" as soon as your system is complete." >&2
 		rm "$dir"/*
 		exit 0
 	fi
@@ -30,7 +36,7 @@ done
 
 if test -e "$dir/all"; then
 	rm "$dir"/*
-	/sbin/mkinitrd
+	"$DRACUT" -f --regenerate-all
 	exit
 fi
 err=0
@@ -42,7 +48,7 @@ for f in "$dir"/*; do
 		echo "$0: /boot/$image does not exist, initrd won't be generated"
 		continue
 	fi
-	if ! /sbin/mkinitrd -k "/boot/$image" -i "/boot/$initrd"; then
+	if ! "$DRACUT" -f "/boot/$initrd"; then
 		err=$?
 	fi
 done
