@@ -55,9 +55,6 @@ alias nfs4 nfs
 # rpc_pipefs
 install rpc_pipefs /sbin/modprobe sunrpc
 
-# we don't want ide-scsi handle CD drives (bnc#242009)
-options ide-scsi idescsi_nocd=1
-
 # pata_acpi is useful for certain limited cases but it tries to attach any
 # controller with IDE class code causing more harm than good if loaded by
 # default.  Blacklist it so that it can be used selectively.
