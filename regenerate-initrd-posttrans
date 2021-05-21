@@ -15,18 +15,6 @@ shopt -s nullglob
 
 dir=/run/regenerate-initrd
 
-did_mkinitrd_setup=false
-run_mkinitrd_setup()
-{
-	if ! $did_mkinitrd_setup; then
-		if test -x /sbin/mkinitrd_setup; then
-			/sbin/mkinitrd_setup
-		fi
-		did_mkinitrd_setup=true
-	fi
-}
-
-
 if ! test -d "$dir"; then
 	exit 0
 fi
@@ -42,7 +30,6 @@ done
 
 if test -e "$dir/all"; then
 	rm "$dir"/*
-	run_mkinitrd_setup
 	/sbin/mkinitrd
 	exit
 fi
@@ -55,7 +42,6 @@ for f in "$dir"/*; do
 		echo "$0: /boot/$image does not exist, initrd won't be generated"
 		continue
 	fi
-	run_mkinitrd_setup
 	if ! /sbin/mkinitrd -k "/boot/$image" -i "/boot/$initrd"; then
 		err=$?
 	fi
