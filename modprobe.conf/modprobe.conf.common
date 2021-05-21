@@ -65,9 +65,6 @@ blacklist pata_acpi
 
 # "Warning! ehci_hcd should always be loaded before uhci_hcd and ohci_hcd, not
 # after" (bnc#449853)
-# mkinitrd hints:
-# SUSE INITRD: uhci-hcd REQUIRES ehci-hcd
-# SUSE INITRD: ohci-hcd REQUIRES ehci-hcd
 softdep uhci-hcd pre: ehci-hcd
 softdep ohci-hcd pre: ehci-hcd
 
