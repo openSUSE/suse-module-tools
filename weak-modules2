@@ -382,13 +382,6 @@ run_depmod_and_mkinitrd() {
 	    else
 		doit /sbin/mkinitrd -k /boot/$image-$krel -i /boot/initrd-$krel
 		status=$?
-		# mkinitrd fails with status 10 if any required kernel modules
-		# missing.  We expect those modules to be added later (by one of
-		# the other kernel-$flavor packages).
-		if [ $status -eq 10 ]; then
-		    log "mkinitrd failed with status 10 (module missing), proceeding"
-		    status=0
-		fi
 	    fi
 	else
 	    echo "WARNING: kernel image for $krel not found!" >&2
