@@ -54,8 +54,8 @@ Recommends:     kmod
 %else
 Recommends:     modutils
 %endif
-# This release requires the dracut fix for bsc#1127891
-Conflicts:      dracut < 44.2
+# This release requires the dracut module 90nvdimm
+Conflicts:      dracut < 49.1
 
 %description
 This package contains helper scripts for KMP installation and
