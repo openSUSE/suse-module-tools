@@ -13,7 +13,7 @@ export PATH=/usr/bin
 export TMPDIR=/dev/shm
 trap 'echo $0: error in "$BASH_COMMAND" >&2' ERR
 
-[[ $(uname -m) = ppc64le ]] || exit 0
+[[ $(uname -m) = ppc64le ]] || [[ $(uname -m) = ppc64 ]] || exit 0
 case $(systemd-detect-virt) in
     none|powervm) ;;
     *) exit 0;;
