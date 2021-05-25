@@ -1,0 +1,6 @@
+# begin of ppc64 part for modprobe.conf
+
+# catas recovery conflicts with eeh (bsc#456389)
+options ib_mthca catas_reset_disable=1
+
+# end of ppc64 part for modprobe.conf
