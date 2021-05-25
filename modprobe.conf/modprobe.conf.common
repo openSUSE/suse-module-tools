@@ -55,9 +55,6 @@ alias nfs4 nfs
 # rpc_pipefs
 install rpc_pipefs /sbin/modprobe sunrpc
 
-# we don't want ide-scsi handle CD drives (bnc#242009)
-options ide-scsi idescsi_nocd=1
-
 # pata_acpi is useful for certain limited cases but it tries to attach any
 # controller with IDE class code causing more harm than good if loaded by
 # default.  Blacklist it so that it can be used selectively.
@@ -65,14 +62,12 @@ blacklist pata_acpi
 
 # "Warning! ehci_hcd should always be loaded before uhci_hcd and ohci_hcd, not
 # after" (bnc#449853)
-# SUSE INITRD: uhci-hcd REQUIRES ehci-hcd
-# SUSE INITRD: ohci-hcd REQUIRES ehci-hcd
 softdep uhci-hcd pre: ehci-hcd
 softdep ohci-hcd pre: ehci-hcd
 
 # cifs calls load_nls()
 # FIXME: determine the proper nls module based on fstab options instead
-softdep nls pre: cifs: nls_utf8
+# SUSE INITRD: cifs REQUIRES nls_utf8
 
 # SCSI changers can take 1h to initialize on module load,
 # triggering udev timeouts (bnc#760274).
@@ -84,7 +79,6 @@ options ch init=0
 softdep usb_storage post: uas
 
 # bsc#1100989: cxgb4 needs to be loaded before csiostor (Chelsio request)
-# SUSE INITRD: csiostor REQUIRES cxgb4
 softdep csiostor pre: cxgb4
 
 # dm-crypt requires essiv
