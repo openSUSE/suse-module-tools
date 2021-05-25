@@ -181,12 +181,6 @@ if test -n "$allow" -a "$allow" != "$allowed"; then
 fi
 %endif
 
-# upgrade from old locations
-if test -e %{_sysconfdir}/modprobe.conf.local; then
-	mv -f %{_sysconfdir}/modprobe.conf.local \
-		%{_sysconfdir}/modprobe.d/99-local.conf
-fi
-
 # Avoid systems becoming unbootable by blacklisting filesystem
 # modules. Modules loaded at installation time will not be
 # blacklisted (the blacklist statement is commented out).
