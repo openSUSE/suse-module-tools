@@ -49,11 +49,7 @@ Requires(post): coreutils
 # keep Ring0 lean. In normal deployments, these packages
 # will be available anyway.
 Recommends:     dracut
-%if 0%{?suse_version} >= 1315
 Recommends:     kmod
-%else
-Recommends:     modutils
-%endif
 # This release requires the dracut module 90nvdimm
 Conflicts:      dracut < 49.1
 
