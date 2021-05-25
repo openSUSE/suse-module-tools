@@ -143,11 +143,7 @@ done
 %endif
 
 %post
-%if 0%{?sle_version} >= 150000
-# Delete obsolete unsupported-modules file from SLE11
-rm -f %{_sysconfdir}/modprobe.d/unsupported-modules
-%else
-# Logic for releases below CODE 15
+%if 0%{?sle_version} < 150000
 %if 0%{?is_opensuse} == 1
 allowed=1
 %else
@@ -192,11 +188,6 @@ test_allow_on_install()
 		return
 	fi
 }
-# upgrade from old locations
-if test -e %{_sysconfdir}/modprobe.d/unsupported-modules; then
-	mv -f %{_sysconfdir}/modprobe.d/unsupported-modules \
-		%{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
-fi
 test_allow_on_install "$@"
 if test -n "$allow" -a "$allow" != "$allowed"; then
 	sed -ri 's/^( *allow_unsupported_modules *) [01]/\1 '"$allow"'/' \
