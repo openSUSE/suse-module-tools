@@ -50,8 +50,8 @@ Requires(post): coreutils
 # will be available anyway.
 Recommends:     dracut
 Recommends:     kmod
-# This release requires the dracut fix for bsc#1127891
-Conflicts:      dracut < 44.2
+# This release requires the dracut module 90nvdimm
+Conflicts:      dracut < 49.1
 
 %description
 This package contains helper scripts for KMP installation and
@@ -113,7 +113,7 @@ install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_unitdir}/systemd-sysctl.s
 # Not needed in SLE11, where sg is loaded via udev rule.
 install -d -m 755 "%{buildroot}%{modules_load_dir}"
 install -pm 644 sg.conf "%{buildroot}%{modules_load_dir}"
-%ifarch ppc64le
+%ifarch ppc64 ppc64le
 install -d -m 755 %{buildroot}/usr/lib/systemd/system-generators
 install -m 755 udev-trigger-generator %{buildroot}/usr/lib/systemd/system-generators
 %endif
