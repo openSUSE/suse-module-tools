@@ -56,6 +56,8 @@
 # kmps: list of kmps, newest first
 #
 
+: ${DRACUT:=/usr/bin/dracut}
+
 find_depmod() {
     local _d
 
@@ -319,9 +321,9 @@ uncomp() {
     xz -cd "$file"
 }
 
-# test if mkinitrd is needed for $krel.
+# test if rebuilding initrd is needed for $krel.
 # stdin - list of changed modules ("_kernel_" for the whole kernel)
-needs_mkinitrd() {
+needs_initrd() {
     local krel=$1
     local changed_basenames=($(sort -u))
 
@@ -332,11 +334,11 @@ needs_mkinitrd() {
         return 1
     fi
 
-    if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x /sbin/mkinitrd ] ; then
-	echo "Please run mkinitrd as soon as your system is complete." >&2
+    if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
+	echo "Please run \"$DRACUT -f /boot/initrd-$krel\" as soon as your system is complete." >&2
 	return 1
     fi
-    # KMPs can force mkinitrd run with %kernel_module_package -b that sets
+    # KMPs can force initrd rebuild with %kernel_module_package -b that sets
     # this variable
     if test -n "$KMP_NEEDS_MKINITRD" && \
 		! test "$KMP_NEEDS_MKINITRD" -eq 0 2>/dev/null; then
@@ -358,16 +360,16 @@ needs_mkinitrd() {
     return 1
 }
 
-# run depmod and mkinitrd for kernel version $krel
+# run depmod and rebuild initrd for kernel version $krel
 # stdin - list of changed modules ("_kernel_" for a whole kernel)
-run_depmod_and_mkinitrd() {
+run_depmod_build_initrd() {
     local krel=$1
     local status=0
 
     if [ -d /lib/modules/$krel -a -f /boot/System.map-$krel ] ; then
 	doit "$DEPMOD" -F /boot/System.map-$krel -ae $krel || return 1
     fi
-    if needs_mkinitrd $krel; then
+    if needs_initrd $krel; then
 	local image
 	for x in vmlinuz image vmlinux linux bzImage uImage Image zImage; do
 	    if [ -f /boot/$x-$krel ]; then
@@ -380,15 +382,8 @@ run_depmod_and_mkinitrd() {
 		mkdir -p /run/regenerate-initrd
 		touch /run/regenerate-initrd/$image-$krel
 	    else
-		doit /sbin/mkinitrd -k /boot/$image-$krel -i /boot/initrd-$krel
+		doit "$DRACUT" -f /boot/initrd-$krel
 		status=$?
-		# mkinitrd fails with status 10 if any required kernel modules
-		# missing.  We expect those modules to be added later (by one of
-		# the other kernel-$flavor packages).
-		if [ $status -eq 10 ]; then
-		    log "mkinitrd failed with status 10 (module missing), proceeding"
-		    status=0
-		fi
 	    fi
 	else
 	    echo "WARNING: kernel image for $krel not found!" >&2
@@ -405,9 +400,9 @@ kernel_changed() {
 	return 0
     fi
     if [ ! -d /lib/modules/$krel ]; then
-	# a kernel without modules - run mkinitrd nevertheless (to mount the
+	# a kernel without modules - rebuild initrd nevertheless (to mount the
 	# root fs, etc).
-	echo "_kernel_" | run_depmod_and_mkinitrd "$krel"
+	echo "_kernel_" | run_depmod_build_initrd "$krel"
 	return
     fi
 
@@ -443,7 +438,7 @@ kernel_changed() {
 	done
 	[ -n "$added" -a -n "$skipped" ] || break
     done
-    echo "_kernel_" | run_depmod_and_mkinitrd "$krel"
+    echo "_kernel_" | run_depmod_build_initrd "$krel"
 }
 
 add_kernel() {
@@ -502,7 +497,7 @@ add_kmp() {
 
 	if kmp_is_present $kmp $krel; then
 	    log "Package $kmp does not need to be added to kernel $krel"
-	    run_depmod_and_mkinitrd "$krel" <$tmpdir/basenames-$kmp || \
+	    run_depmod_build_initrd "$krel" <$tmpdir/basenames-$kmp || \
 		status=1
 	    continue
 	fi
@@ -512,12 +507,12 @@ add_kmp() {
 	    add_kmp_modules "$kmp" "$krel"
 	    if [ -z "$old_kmp" ]; then
 		log "Package $kmp added to kernel $krel"
-		run_depmod_and_mkinitrd "$krel" <$tmpdir/basenames-$kmp || \
+		run_depmod_build_initrd "$krel" <$tmpdir/basenames-$kmp || \
 		    status=1
 	    else
 		log "Package $old_kmp replaced by package $kmp in kernel $krel"
 		cat $tmpdir/basenames-{$old_kmp,$kmp} \
-		| run_depmod_and_mkinitrd "$krel" || status=1
+		| run_depmod_build_initrd "$krel" || status=1
 	    fi
 	fi
     done
@@ -571,7 +566,7 @@ remove_kmp() {
 	    if [ -n "$other_kmp" ]; then
 		log "Package $kmp replaced by package $other_kmp in kernel $krel"
 		cat $tmpdir/basenames-{$kmp,$other_kmp} \
-		| run_depmod_and_mkinitrd "$krel" || status=1
+		| run_depmod_build_initrd "$krel" || status=1
 	    else
 		log "Package $kmp removed from kernel $krel"
 		if [ $other_found -eq 1 ]; then
@@ -582,7 +577,7 @@ remove_kmp() {
 			    cat $tmpdir/unresolved-"$krel"
 		    fi
 		fi
-		run_depmod_and_mkinitrd "$krel" <$tmpdir/basenames-$kmp || \
+		run_depmod_build_initrd "$krel" <$tmpdir/basenames-$kmp || \
 		    status=1
 	    fi
 	    rm -f $tmpdir/unresolved-"$krel"
@@ -595,19 +590,19 @@ help() {
 cat <<EOF
 ${0##*/} --add-kmp kmp-name-version-release
 	To be called in %post of kernel module packages. Creates
-	symlinks in compatible kernel's weak-updates/ directory and runs
-	mkinitrd if needed.
+	symlinks in compatible kernel's weak-updates/ directory and rebuilds
+	the initrd if needed.
 
 ${0##*/} --remove-kmp kmp-name < module-list
 	To be called in %postun of kernel module packages. Removes
 	weak-updates/ symlinks for this KMP. As the KMP doesn't exist in
 	the RPM database at this point, the list of modules has to be
-	passed on standard input. Runs mkinitrd if needed.
+	passed on standard input. Rebuilds the initrd if needed.
 
 ${0##*/} --add-kernel kernel-release
 	To be called in %post of the kernel base package. Adds
-	compatibility symlinks for all compatible KMPs and runs mkinitrd
-	if needed.
+	compatibility symlinks for all compatible KMPs and rebuilds the
+	initrd if needed.
 
 ${0##*/} --remove-kernel kernel-release
 	To be called in %postun of the kernel base package. Removes all
@@ -616,12 +611,12 @@ ${0##*/} --remove-kernel kernel-release
 ${0##*/} --add-kernel-modules kernel-release < module-list
         To be called in %post of kernel subpackages that only contain
         modules (i.e. not kernel-*-base). Adds newly available
-        compatibity symlinks and runs mkinitrd if needed.
+        compatibity symlinks and rebuilds the initrd if needed.
 
 ${0##*/} --remove-kernel-modules kernel-release < module-list
         To be called in %postun of kernel subpackages that only contain
         modules (i.e. not kernel-*-base). Removes no longer working
-        compatibity symlinks and runs mkinitrd if needed.
+        compatibity symlinks and rebuilds the initrd if needed.
 
 ${0##*/} --verbose ...
 	Print commands as they are executed and other information.
