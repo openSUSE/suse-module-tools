@@ -117,7 +117,7 @@ install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_unitdir}/systemd-sysctl.s
 # Not needed in SLE11, where sg is loaded via udev rule.
 install -d -m 755 "%{buildroot}%{modules_load_dir}"
 install -pm 644 sg.conf "%{buildroot}%{modules_load_dir}"
-%ifarch ppc64le
+%ifarch ppc64 ppc64le
 install -d -m 755 %{buildroot}/usr/lib/systemd/system-generators
 install -m 755 udev-trigger-generator %{buildroot}/usr/lib/systemd/system-generators
 %endif
