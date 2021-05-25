@@ -144,11 +144,7 @@ done
 
 %post
 %if 0%{?sle_version} < 150000
-%if 0%{?is_opensuse} == 1
-allowed=1
-%else
-allowed=0
-%endif
+allowed=%{?is_opensuse:1}%{!?is_opensuse:0}
 test_allow_on_install()
 {
 	# configure handling of unsupported modules
