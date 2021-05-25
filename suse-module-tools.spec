@@ -150,16 +150,6 @@ test_allow_on_install()
 	# configure handling of unsupported modules
 	# default is to allow them
 	allow=1
-	# if the obsolete LOAD_UNSUPPORTED_MODULES_AUTOMATICALLY variable is
-	# set to no, don't allow (this was used in SLES 9 and 10)
-	if test -e %{_sysconfdir}/sysconfig/hardware/config; then
-		. %{_sysconfdir}/sysconfig/hardware/config
-		if test "x$LOAD_UNSUPPORTED_MODULES_AUTOMATICALLY" = "xno"; then
-			allow=0
-		fi
-		# obsolete
-		rm %{_sysconfdir}/sysconfig/hardware/config
-	fi
 	# don't change the setting during upgrade
 	if test "$1" != 1; then
 		allow=
