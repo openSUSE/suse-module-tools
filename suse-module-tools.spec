@@ -68,6 +68,9 @@ module-init-tools, whichever implementation you choose to install.
 %install
 # now assemble the parts for modprobe.conf
 cp modprobe.conf/modprobe.conf.common 00-system.conf
+%ifarch ppc64le
+ln -f modprobe.conf/modprobe.conf.ppc64 modprobe.conf/modprobe.conf.$RPM_ARCH
+%endif
 if [ -f "modprobe.conf/modprobe.conf.$RPM_ARCH" ]; then
 	cat "modprobe.conf/modprobe.conf.$RPM_ARCH" >>00-system.conf
 fi
