@@ -259,7 +259,7 @@ done
 %{_unitdir}/systemd-sysctl.service.d
 %dir %{modules_load_dir}
 %{modules_load_dir}/sg.conf
-%ifarch ppc64le
+%ifarch ppc64 ppc64le
 /usr/lib/systemd/system-generators
 %endif
 
