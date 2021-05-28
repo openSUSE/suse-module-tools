@@ -33,6 +33,10 @@
 # List of legacy file systems to be blacklisted by default
 %global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs hfs hpfs jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ufs
 
+# List of all files installed under modprobe.d
+%global modprobe_conf_files 00-system 00-system-937216 10-unsupported-modules 50-blacklist 60-blacklist_fs-* 99-local
+%global modprobe_conf_rpmsave %(echo "%{modprobe_conf_files}" | sed 's,\\([^ ]*\\),%{_sysconfdir}/modprobe.d/\\1.conf.rpmsave,g')
+
 %if 0%{?sle_version} >= 120200 && 0%{?sle_version} < 150000
 %global softdep_br_netfilter 1
 %endif
@@ -213,6 +217,35 @@ $a\
 	fi
 done
 %endif
+
+exit 0
+
+%pre
+# Avoid restoring old .rpmsave files in %posttrans
+for f in %{modprobe_conf_rpmsave}; do
+    if [ -f ${f} ]; then
+	mv -f ${f} ${f}.%{name}
+    fi
+done
+if [ -f %{_sysconfdir}/depmod.d/00-system.conf.rpmsave ]; then
+    mv -f %{_sysconfdir}/depmod.d/00-system.conf.rpmsave \
+          %{_sysconfdir}/depmod.d/00-system.conf.rpmsave.%{name}
+fi
+exit 0
+
+%posttrans
+# If the user had modified any of the configuration files installed under
+# /etc, they'll now be renamed to .rpmsave files. Restore them.
+for f in %{modprobe_conf_rpmsave}; do
+    if [ -f ${f} ]; then
+	mv -fv ${f} ${f%.rpmsave}
+    fi
+done
+if [ -f %{_sysconfdir}/depmod.d/00-system.conf.rpmsave ]; then
+    mv -fv %{_sysconfdir}/depmod.d/00-system.conf.rpmsave \
+           %{_sysconfdir}/depmod.d/00-system.conf
+fi
+exit 0
 
 %files
 %defattr(-,root,root)
