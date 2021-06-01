@@ -166,7 +166,9 @@ s/^/# /
 $a\
 # Delete the following line to disallow modification of this file by rpm postinstall scripts.\
 # __THIS FILE MAY BE MODIFIED__
-' "$inst" >"$conf"
+' "$inst" >"$conf".new.%{name}
+ls -l "$conf"
+cat "$conf"
 	fi
 done
 set +x
@@ -179,6 +181,7 @@ for f in %{modprobe_conf_rpmsave}; do
     if [ -f ${f} ]; then
 	mv -f ${f} ${f}.%{name}
     fi
+    rm -f ${f%.rpmsave}.new.%{name}
 done
 if [ -f %{_sysconfdir}/depmod.d/00-system.conf.rpmsave ]; then
     mv -f %{_sysconfdir}/depmod.d/00-system.conf.rpmsave \
@@ -189,11 +192,16 @@ exit 0
 %posttrans
 # If the user had modified any of the configuration files installed under
 # /etc, they'll now be renamed to .rpmsave files. Restore them.
+set -x
 for f in %{modprobe_conf_rpmsave}; do
     if [ -f ${f} ]; then
 	mv -fv ${f} ${f%.rpmsave}
+	rm -f ${f%.rpsave}.new.%{name}
+    elif [ -f ${f%.rpsave}.new.%{name} ]; then
+	mv -fv ${f%.rpmsave}.new.%{name} ${f%.rpmsave}
     fi
 done
+set +x
 if [ -f %{_sysconfdir}/depmod.d/00-system.conf.rpmsave ]; then
     mv -fv %{_sysconfdir}/depmod.d/00-system.conf.rpmsave \
            %{_sysconfdir}/depmod.d/00-system.conf
