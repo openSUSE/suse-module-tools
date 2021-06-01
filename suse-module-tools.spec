@@ -151,7 +151,6 @@ done
 # blacklisted (the blacklist statement is commented out).
 # The modified file is written to /etc/modprobe.d
 %if 0%{?suse_version} >= 1550 || 0%{?sle_version} >= 150100
-set -x
 for mod in %{fs_blacklist}; do
         inst=%{modprobe_dir}/60-blacklist_fs-"$mod".conf
 	conf=%{_sysconfdir}/modprobe.d/60-blacklist_fs-"$mod".conf
@@ -172,8 +171,8 @@ $a\
 ' "$inst" >"$conf"
 	fi
 done
-set +x
 %endif
+
 exit 0
 
 %pre
