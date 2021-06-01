@@ -73,7 +73,7 @@ module-init-tools, whichever implementation you choose to install.
 %setup -q
 
 %build
-sed -i 's/@FS_BLACKLIST@/%{fs_blacklist}/' README.md
+sed -i 's/@FS_BLACKLIST@.*/%{fs_blacklist}/' README.md
 
 %install
 # now assemble the parts for modprobe.conf

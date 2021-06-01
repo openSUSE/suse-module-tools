@@ -1,8 +1,13 @@
 #! /bin/sh
 # Copyright (c) 2021 SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
-ME=$(basename "$0")
 
+# Never unblacklist non-interactively
+if ! tty -s <&0; then
+    exit 0
+fi
+
+ME=$(basename "$0")
 if [ $UID -ne 0 ]; then
     echo "$ME: you must be root to run this program" >&2
     exit 1
@@ -44,17 +49,15 @@ elif [ -e "$CONF" ]; then
     exit 1
 fi
 
-if tty -s <&0; then
-    echo "$ME: *** NOTE: $MODULE will be loaded even if you answer \"n\" below. ***"
-    _a=
-    while [ x"$_a" != xy -a x"$_a" != xn ]; do
-	echo -n "$ME: $MODULE is currently blacklisted, do you want to un-blacklist it (y/n)? " >&2
-	read _a
-    done
-    if [ x"$_a" != xy ]; then
-	echo "$ME: not un-blacklisting $MODULE" >&2
-	exit 0
-    fi
+echo "$ME: *** NOTE: $MODULE will be loaded even if you answer \"n\" below. ***"
+_a=
+while [ x"$_a" != xy -a x"$_a" != xn ]; do
+    echo -n "$ME: $MODULE is currently blacklisted, do you want to un-blacklist it (y/n)? " >&2
+    read _a
+done
+if [ x"$_a" != xy ]; then
+    echo "$ME: not un-blacklisting $MODULE" >&2
+    exit 0
 fi
 
 rm -f "$CONF"
