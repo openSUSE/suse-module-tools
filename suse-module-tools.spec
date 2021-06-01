@@ -15,9 +15,6 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
-
-# missing in SLE12
-%{!?_rpmmacrodir: %global _rpmmacrodir %{_rpmconfigdir}/macros.d}
 # missing in SLE15 (systemd-rpm-macros)
 %{!?_modulesloaddir: %global _modulesloaddir /usr/lib/modules-load.d}
 
@@ -34,12 +31,9 @@
 %global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs hfs hpfs jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ufs
 
 # List of all files installed under modprobe.d
+# Note: this list contains files installed by previous versions, like 00-system-937216.conf!
 %global modprobe_conf_files 00-system 00-system-937216 10-unsupported-modules 50-blacklist 60-blacklist_fs-* 99-local
 %global modprobe_conf_rpmsave %(echo "%{modprobe_conf_files}" | sed 's,\\([^ ]*\\),%{_sysconfdir}/modprobe.d/\\1.conf.rpmsave,g')
-
-%if 0%{?sle_version} >= 120200 && 0%{?sle_version} < 150000
-%global softdep_br_netfilter 1
-%endif
 
 Name:           suse-module-tools
 Version:        16.0.1
@@ -95,10 +89,6 @@ install -pm644 "10-unsupported-modules.conf" \
 	"%{buildroot}%{modprobe_dir}/"
 install -pm644 00-system.conf "%{buildroot}%{modprobe_dir}/"
 
-%if 0%{?softdep_br_netfilter}
-# softdep bridge->br_netfilter, SLE only
-install -pm644 modprobe.conf/00-system-937216.conf %{buildroot}%{modprobe_dir}
-%endif
 %if 0%{?suse_version} >= 1550 || 0%{?sle_version} >= 150100
 install -pm644 modprobe.conf/modprobe.conf.blacklist "%{buildroot}%{modprobe_dir}/50-blacklist.conf"
 %endif
@@ -153,44 +143,6 @@ done
 %endif
 
 %post
-%if 0%{?sle_version} < 150000
-allowed=%{?is_opensuse:1}%{!?is_opensuse:0}
-test_allow_on_install()
-{
-	# configure handling of unsupported modules
-	# default is to allow them
-	allow=1
-	# don't change the setting during upgrade
-	if test "$1" != 1; then
-		allow=
-		return
-	fi
-	# on SLES, the default is not to allow unsupported modules
-	if grep -qs "Enterprise Server" %{_sysconfdir}/os-release; then
-		allow=0
-	else
-		return
-	fi
-	# unless the admin passed "oem-modules=1" to the kernel during install
-	if grep -qs '\<oem-modules=1\>' /proc/cmdline; then
-		allow=1
-		return
-	fi
-	# or if the installer already loaded some unsupported modules
-	# (see TAINT_NO_SUPPORT in /etc/src/linux/include/linux/kernel.h)
-	tainted=$(cat /proc/sys/kernel/tainted 2>/dev/null || echo 0)
-	if test $((tainted & (1<<30))) != 0; then
-		allow=1
-		return
-	fi
-}
-test_allow_on_install "$@"
-if test -n "$allow" -a "$allow" != "$allowed"; then
-	sed -ri 's/^( *allow_unsupported_modules *) [01]/\1 '"$allow"'/' \
-		%{_sysconfdir}/modprobe.d/10-unsupported-modules.conf
-fi
-%endif
-
 # Avoid systems becoming unbootable by blacklisting filesystem
 # modules. Modules loaded at installation time will not be
 # blacklisted (the blacklist statement is commented out).
@@ -250,9 +202,6 @@ exit 0
 %files
 %defattr(-,root,root)
 
-%if 0%{?sle_version:%{sle_version}}%{!?sle_version:150000} <= 120200
-%dir %{_defaultlicensedir}
-%endif
 %license LICENSE
 %doc README.SUSE
 %{modprobe_dir}
