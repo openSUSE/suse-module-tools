@@ -1,0 +1,67 @@
+#! /bin/sh
+# Copyright (c) 2021 SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
+ME=$(basename "$0")
+
+if [ $UID -ne 0 ]; then
+    echo "$ME: you must be root to run this program" >&2
+    exit 1
+fi
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $ME module" >&2
+    exit 1
+fi
+
+MODULE=$1
+if [ -z "$MODULE" ] || \
+       [ ! -f /lib/modprobe.d/60-blacklist_fs-"$MODULE".conf -a \
+	 ! -f /usr/lib/modprobe.d/60-blacklist_fs-"$MODULE".conf ]; then
+    echo "$ME: Invalid or unknown module \"$MODULE\"" >&2
+    exit 1
+fi
+
+CONF=/etc/modprobe.d/60-blacklist_fs-"$MODULE".conf
+if [ -L "$CONF" ]; then
+    if [ x"$(readlink -f "$CONF")" = x/dev/null ]; then
+	# already linked to /dev/null
+	exit 0
+    else
+	echo "$ME: $CONF is in unexpected state, exiting" >&2
+	exit 1
+    fi
+elif [ -f "$CONF" ]; then
+    if ! egrep -q "^[ 	]*blacklist[ 	]+$MODULE" "$CONF"; then
+	# not blacklisted
+	exit 0
+    fi
+    if ! egrep -q '^# __THIS FILE MAY BE MODIFIED__' "$CONF"; then
+	echo "$ME: $CONF exists, cannot modify it" >&2
+	exit 1
+    fi
+elif [ -e "$CONF" ]; then
+    echo "$ME: $CONF is in unexpected state, exiting" >&2
+    exit 1
+fi
+
+if tty -s <&0; then
+    echo "$ME: *** NOTE: $MODULE will be loaded even if you answer \"n\" below. ***"
+    _a=
+    while [ x"$_a" != xy -a x"$_a" != xn ]; do
+	echo -n "$ME: $MODULE is currently blacklisted, do you want to un-blacklist it (y/n)? " >&2
+	read _a
+    done
+    if [ x"$_a" != xy ]; then
+	echo "$ME: not un-blacklisting $MODULE" >&2
+	exit 0
+    fi
+fi
+
+rm -f "$CONF"
+if ln -sf /dev/null "$CONF"; then
+    echo "$ME: $MODULE un-blacklisted by creating $CONF" >&2
+    exit 0
+else
+    echo "$ME: Failed to create $CONF" >&2
+    exit 1
+fi
