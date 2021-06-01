@@ -59,18 +59,21 @@ $SOME_FS` in a terminal. This will call a script that offers to "un-blacklist"
 the module for future use.
 
     # modprobe minix
-    unblacklist: *** NOTE: minix will be loaded even if you answer "n" below. ***
-    unblacklist: minix is currently blacklisted, do you want to un-blacklist it (y/n)? y
+    unblacklist: loading minix file system module
+    unblacklist: Do you want to un-blacklist minix permanently (<y>es/<n>o/n<e>ver)? y
     unblacklist: minix un-blacklisted by creating /etc/modprobe.d/60-blacklist_fs-minix.conf
 
 If the user selects **y**, the module is un-blacklisted by creating a symlink
 to `/dev/null` (see above). Future attempts to mount minix file systems will
 work with no issue, even after reboot, because the kernel's auto-loading
 mechanism works for this file system again. If the user selects **n**, the
-module remains blacklisted. Regardless of the user's answer, the module will be
-loaded for the time being; i.e. subsequent **mount** commands for devices with
-this file system will succeed until the module is unloaded or the system is
-rebooted.
+module remains blacklisted. If the user selects **e** or "never", the module
+remains blacklisted, and on future **modprobe** attempts for this file system
+the dialog above won't be shown any more.
+
+Regardless of the user's answer, the module will be loaded for the time being;
+i.e. subsequent **mount** commands for devices with this file system will succeed
+until the module is unloaded or the system is rebooted.
 
 For security reasons, it's recommended that you only un-blacklist file system
 modules that you know you'll use on a regular basis, and just enable them
