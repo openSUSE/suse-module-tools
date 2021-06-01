@@ -73,6 +73,7 @@ module-init-tools, whichever implementation you choose to install.
 %setup -q
 
 %build
+sed -i 's/@FS_BLACKLIST@.*/%{fs_blacklist}/' README.md
 
 %install
 # now assemble the parts for modprobe.conf
@@ -179,7 +180,7 @@ exit 0
 %defattr(-,root,root)
 
 %license LICENSE
-%doc README.SUSE
+%doc README.md
 %{modprobe_dir}
 %dir %{_sysconfdir}/modprobe.d
 %{depmod_dir}
