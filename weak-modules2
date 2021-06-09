@@ -91,8 +91,8 @@ doit() {
     fi
 }
 
-filter_basenames() {
-    sed -rn 's:.*\<lib/modules/.*/([^/]*)\.ko(\.[gx]z)?$:\1:p'
+strip_mod_extensions() {
+    sed -rn 's/\.ko(\.[gx]z)?$//p'
 }
 
 # Name of the symlink that makes a module available to a given kernel
@@ -319,11 +319,21 @@ uncomp() {
     xz -cd "$file"
 }
 
+get_initrd_basenames() {
+    lsinitrd /boot/initrd-$1 | \
+	sed -rn 's:.*\<lib/modules/.*/::p' | \
+	strip_mod_extensions
+
+    INITRD_MODULES=
+    . /etc/sysconfig/kernel &>/dev/null
+    printf '%s\n' $INITRD_MODULES
+}
+
 # test if mkinitrd is needed for $krel.
 # stdin - list of changed modules ("_kernel_" for the whole kernel)
 needs_mkinitrd() {
     local krel=$1
-    local changed_basenames=($(sed -r 's/\.ko(\.[gx]z)?$//' | sort -u))
+    local changed_basenames=($(strip_mod_extensions | sort -u))
 
     # Don't generate an initrd for kdump here. It's done automatically with mkdumprd when
     # /etc/init.d/boot.kdump is called to load the kdump kernel. See mkdumprd(8) why
@@ -348,7 +358,7 @@ needs_mkinitrd() {
     if [ ! -e /boot/initrd-$krel ]; then
 	return 0
     fi
-    local initrd_basenames=($( (lsinitrd /boot/initrd-$krel | filter_basenames; INITRD_MODULES=; . /etc/sysconfig/kernel &>/dev/null; printf '%s\n' $INITRD_MODULES) | sort -u))
+    local initrd_basenames=($(get_initrd_basenames "$krel" | sort -u))
     local i=($(join <(printf '%s\n' "${changed_basenames[@]}") \
 	            <(printf '%s\n' "${initrd_basenames[@]}") ))
     log "changed initrd modules for kernel $krel: ${i[@]-none}"
