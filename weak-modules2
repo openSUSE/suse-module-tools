@@ -57,6 +57,10 @@
 #
 
 : ${DRACUT:=/usr/bin/dracut}
+for LSINITRD in /usr/lib/module-init-tools/lsinitrd-quick /usr/bin/lsinitrd; do
+    [ -x $LSINITRD ] && break
+done
+[ -x "$LSINITRD" ] || exit 1
 
 find_depmod() {
     local _d
@@ -322,7 +326,7 @@ uncomp() {
 }
 
 get_initrd_basenames() {
-    lsinitrd /boot/initrd-$1 | \
+    $LSINITRD /boot/initrd-$1 | \
 	sed -rn 's:.*\<lib/modules/.*/::p' | \
 	strip_mod_extensions
 
