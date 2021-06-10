@@ -43,12 +43,12 @@ err=0
 for f in "$dir"/*; do
 	rm "$f"
 	image=${f##*/}
-	initrd=initrd-${image#*-}
+	kver=${image#*-}
 	if ! test -e "/boot/$image"; then
 		echo "$0: /boot/$image does not exist, initrd won't be generated"
 		continue
 	fi
-	if ! "$DRACUT" -f "/boot/$initrd"; then
+	if ! "$DRACUT" -f "/boot/initrd-$kver" "$kver"; then
 		err=$?
 	fi
 done
