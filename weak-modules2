@@ -335,7 +335,7 @@ needs_initrd() {
     fi
 
     if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
-	echo "Please run \"$DRACUT -f /boot/initrd-$krel\" as soon as your system is complete." >&2
+	echo "Please run \"$DRACUT -f /boot/initrd-$krel $krel\" as soon as your system is complete." >&2
 	return 1
     fi
     # KMPs can force initrd rebuild with %kernel_module_package -b that sets
@@ -382,7 +382,7 @@ run_depmod_build_initrd() {
 		mkdir -p /run/regenerate-initrd
 		touch /run/regenerate-initrd/$image-$krel
 	    else
-		doit "$DRACUT" -f /boot/initrd-$krel
+		doit "$DRACUT" -f /boot/initrd-$krel $krel
 		status=$?
 	    fi
 	else
