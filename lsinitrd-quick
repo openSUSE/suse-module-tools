@@ -1,0 +1,92 @@
+#! /bin/bash
+
+trap 'echo error in $BASH_COMMAND >&2; exit 1' ERR
+
+MG_CPIO=$'\x71\xc7'
+MG_CPIO1=070701
+MG_GZ=$'\x1f\x8b'
+MG_GZ1=$'\x1f\x9e'
+MG_BZ="BZh"
+MG_XZ=$'\xfd7zXZ'
+MG_LZ4=$'\x02\x21'
+MG_LZO=$'\x89LZO'
+MG_ZSTD=$'\x28\xB5\x2F\xFD'
+
+check_fmt() {
+    case $1 in
+	$MG_CPIO*|$MG_CPIO1)
+	    echo cpio;;
+	$MG_GZ*|$MG_GZ1*)
+	    echo gzip;;
+	$MG_BZ*)
+	    echo bz2;;
+	$MG_XZ*)
+	    echo xz;;
+	$MG_LZ4*)
+	    echo lz4;;
+	$MG_LZO*)
+	    echo lzo;;
+	$MG_ZSTD*)
+	    echo zstd;;
+    esac
+}
+
+uncomp() {
+    case $1 in
+	$MG_CPIO*|$MG_CPIO1)
+	    cat;;
+	$MG_GZ*)
+	    zcat;;
+	$MG_BZ*)
+	    bzcat;;
+	$MG_XZ*)
+	    xzcat;;
+	$MG_LZ4*)
+	    lz4 -d -c;;
+	$MG_LZO*)
+	    lzop -d -c;;
+	$MG_ZSTD*)
+	    zstd -d -c;;
+    esac
+}
+
+check_size () {
+    [[ "$SIZE" -gt $1 ]] || {
+	echo "$INITRD: file too small, cannot read magic" >&2
+	exit 1
+    }
+}
+
+INITRD=$1
+[[ "$INITRD" && -f "$INITRD" ]] || {
+    echo "$INITRD: file not found" >&2
+    exit 1
+}
+SIZE=$(stat -L -c %s "$INITRD")
+check_size 6
+
+read -r -d'\0' -n 6 MAGIC <"$INITRD"
+FMT=$(check_fmt "$MAGIC")
+BYTES=0
+if [[ ! $FMT ]]; then
+    echo "$INITRD: unknown format" >&2
+    exit 1
+elif [[ "$FMT" = cpio ]]; then
+    # check for "early CPIO" image
+    TMPFILE=$(mktemp "${TMPDIR:-/tmp}/initrd-XXXXXX")
+    EARLY=$(cpio -t early_cpio "kernel/*/microcode/*.bin" \
+		 <"$INITRD" 2>"$TMPFILE")
+    BLOCKS=$(cut -d" " -f1 "$TMPFILE")
+    rm -f "$TMPFILE"
+    if [[ -z "$EARLY" ]]; then
+	# just plain uncompressed cpio
+	cpio -t <"$INITRD" 2>/dev/null
+	exit
+    fi
+    BYTES=$((512*BLOCKS))
+    check_size $((BYTES + 6))
+    read -r -d '\0' -n 6 MAGIC \
+	 < <(dd if="$INITRD" bs=1b count=1 skip=$BLOCKS 2>/dev/null)
+fi
+
+tail -c +$((BYTES + 1)) "$INITRD" | uncomp "$MAGIC" | cpio -t 2>/dev/null

@@ -57,6 +57,20 @@
 #
 
 : ${DRACUT:=/usr/bin/dracut}
+find_lsinitrd() {
+    local lsi
+    LSINITRD=
+    for lsi in /usr/lib/module-init-tools/lsinitrd-quick /usr/bin/lsinitrd; do
+	if [[ -x $lsi ]]; then
+	    LSINITRD=$lsi
+	    break
+	fi
+    done
+    if [[ ! "$LSINITRD" ]]; then
+	echo "$0: could not find lsinitrd" >&2
+	exit 1
+    fi
+}
 
 find_depmod() {
     local _d
@@ -322,7 +336,7 @@ uncomp() {
 }
 
 get_initrd_basenames() {
-    lsinitrd /boot/initrd-$1 | \
+    $LSINITRD /boot/initrd-$1 | \
 	sed -rn 's:.*\<lib/modules/.*/::p' | \
 	strip_mod_extensions
 
@@ -710,6 +724,7 @@ fi
 
 #unset LANG LC_ALL LC_COLLATE
 find_depmod
+find_lsinitrd
 
 tmpdir=$(mktemp -d /var/tmp/${0##*/}.XXXXXX)
 trap "rm -rf $tmpdir" EXIT
