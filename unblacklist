@@ -1,0 +1,86 @@
+#! /bin/sh
+# Copyright (c) 2021 SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+# Never unblacklist non-interactively
+if ! tty -s <&0; then
+    exit 0
+fi
+
+ME=$(basename "$0")
+if [ $UID -ne 0 ]; then
+    echo "$ME: you must be root to run this program" >&2
+    exit 1
+fi
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $ME module" >&2
+    exit 1
+fi
+
+MODULE=$1
+if [ -z "$MODULE" ] || \
+       [ ! -f /lib/modprobe.d/60-blacklist_fs-"$MODULE".conf -a \
+	 ! -f /usr/lib/modprobe.d/60-blacklist_fs-"$MODULE".conf ]; then
+    echo "$ME: Invalid or unknown module \"$MODULE\"" >&2
+    exit 1
+fi
+
+CONF=/etc/modprobe.d/60-blacklist_fs-"$MODULE".conf
+if [ -L "$CONF" ]; then
+    if [ x"$(readlink -f "$CONF")" = x/dev/null ]; then
+	# already linked to /dev/null
+	exit 0
+    else
+	echo "$ME: $CONF is in unexpected state, exiting" >&2
+	exit 1
+    fi
+elif [ -f "$CONF" ]; then
+    if ! egrep -q "^[ 	]*blacklist[ 	]+$MODULE" "$CONF"; then
+	# not blacklisted
+	exit 0
+    fi
+    if ! egrep -q '^# __THIS FILE MAY BE MODIFIED__' "$CONF"; then
+	echo "$ME: $CONF exists, cannot modify it" >&2
+	exit 1
+    fi
+elif [ -e "$CONF" ]; then
+    echo "$ME: $CONF is in unexpected state, exiting" >&2
+    exit 1
+fi
+
+echo "$ME: loading $MODULE file system module" >&2
+_a=
+while [ -z "$_a" ]; do
+    echo -n "$ME: Do you want to un-blacklist $MODULE permanently (<y>es/<n>o/n<e>ver)? " >&2
+    read _a
+    case $_a in
+	y|yes)   _a=yes;;
+	n|no)    _a=no;;
+	e|never) _a=never;;
+	*)       _a=;;
+    esac
+done
+case $_a in
+    no)
+	echo "$ME: not un-blacklisting $MODULE" >&2
+	exit 0
+	;;
+    never)
+	echo "$ME: creating $CONF" >&2
+	rm -f "$CONF"
+	cat >$CONF <<EOF
+# created by $0 (user wants to never unblacklist this module)
+blacklist $MODULE
+EOF
+	exit 0
+	;;
+esac
+
+if ln -sf /dev/null "$CONF"; then
+    echo "$ME: $MODULE un-blacklisted by creating $CONF" >&2
+    exit 0
+else
+    echo "$ME: Failed to create $CONF" >&2
+    exit 1
+fi
