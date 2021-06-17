@@ -65,11 +65,12 @@ Summary:        Legacy "weak-modules" script for Code10
 Group:          System/Base
 Requires:       %{name}
 Requires:       binutils
+Supplements:    dkms
 
 %description legacy
 This package contains the legacy "weak-modules" script for kernel
 module package (KMP) support. It was replaced by "weak-modules2" in
-SLE 11 and later.
+SLE 11 and later. It is still used by the DKMS module packaging framework.
 
 %prep
 %setup -q
