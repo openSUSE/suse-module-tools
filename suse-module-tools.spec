@@ -111,9 +111,8 @@ install -pm 644 "depmod-00-system.conf" "%{buildroot}%{depmod_dir}/00-system.con
 
 # "/usr/lib/module-init-tools" name hardcoded in KMPs, mkinitrd, etc.
 install -d -m 755 "%{buildroot}/usr/lib/module-init-tools"
-install -pm 755 weak-modules{,2} "%{buildroot}/usr/lib/module-init-tools/"
-install -pm 755 driver-check.sh "%{buildroot}/usr/lib/module-init-tools/"
-install -pm 755 unblacklist "%{buildroot}/usr/lib/module-init-tools/"
+install -pm 755 -t "%{buildroot}/usr/lib/module-init-tools/" \
+	weak-modules{,2} driver-check.sh unblacklist lsinitrd-quick
 
 %if 0%{?suse_version} < 1550
 # rpm macros and helper
