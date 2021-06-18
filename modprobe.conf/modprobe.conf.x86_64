@@ -10,7 +10,7 @@ options parport_pc dma=none
 # options parport_pc io=0x378,0x278  irq=none,none
 
 # ata_piix can't handle ICH6 in AHCI mode
-install ata_piix /sbin/modprobe ahci 2>&1 |:; /sbin/modprobe --ignore-install ata_piix
+softdep ata_piix pre: ahci
 
 # QEMU/KVM can handle ACPI Hotplugging
 alias dmi:bvnQEMU:bvrQEMU:* acpiphp

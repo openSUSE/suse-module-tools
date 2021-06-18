@@ -23,7 +23,7 @@ alias char-major-10-170 thinkpad
 options sisfb             mode=none mem=12288
 
 # ata_piix can't handle ICH6 in AHCI mode
-install ata_piix /sbin/modprobe ahci 2>&1 |:; /sbin/modprobe --ignore-install ata_piix
+softdep ata_piix pre: ahci
 
 # QEMU/KVM can handle ACPI Hotplugging
 alias dmi:bvnQEMU:bvrQEMU:* acpiphp
