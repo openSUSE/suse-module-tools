@@ -20,12 +20,14 @@
 
 # Location for modprobe and depmod .conf files
 #
-# systemd-rpm-macros sets _modprobedir to /usr/lib/modprobe.d,
-# but this has been supported by kmod only very recently.
-# /lib/modprobe.d is safe, and will be transparently moved to
-# /usr/lib/modprobe.d with the usr merge.
+# This assumes post-usr-merge (20210527) for Tumbleweed
+%if 0%{?suse_version} >= 1550
+%global modprobe_dir /usr/lib/modprobe.d
+%global depmod_dir /usr/lib/depmod.d
+%else
 %global modprobe_dir /lib/modprobe.d
 %global depmod_dir /lib/depmod.d
+%endif
 
 # List of legacy file systems to be blacklisted by default
 %global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs hfs hpfs jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ufs
@@ -61,6 +63,10 @@ Recommends:     dracut
 Recommends:     kmod
 # This release requires the dracut module 90nvdimm
 Conflicts:      dracut < 49.1
+# TW: conflict with pre-usrmerge
+%if 0%{?suse_version} >= 1550
+Conflicts:      filesystem < 15.5-40.2
+%endif
 
 %description
 This package contains helper scripts for KMP installation and
