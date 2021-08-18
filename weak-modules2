@@ -108,7 +108,7 @@ doit() {
 }
 
 strip_mod_extensions() {
-    sed -rn 's/\.ko(\.[gx]z)?$//p'
+    sed -rn 's/\.ko(\.[gx]z|\.zst)?$//p'
 }
 
 # Name of the symlink that makes a module available to a given kernel
@@ -287,7 +287,7 @@ find_kmps() {
 	    continue
 	fi
 	rpm -ql --nodigest --nosignature "$kmp" \
-	    | grep -Ee '^/lib/modules/[^/]+/.+\.ko(\.[gx]z)?$' \
+	    | grep -Ee '^/lib/modules/[^/]+/.+\.ko(\.[gx]z|\.zst)?$' \
 	    > $tmpdir/modules-$kmp
 	if [ $? != 0 ]; then
 	    echo "WARNING: $kmp does not contain any kernel modules" >&2
