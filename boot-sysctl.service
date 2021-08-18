@@ -1,0 +1,16 @@
+[Unit]
+Description=Apply Kernel Variables for %v from /boot
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=systemd-sysctl.service
+After=systemd-modules-load.service
+ConditionPathExists=!/usr/lib/modules/%v/sysctl.conf
+RequiresMountsFor=/boot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/systemd-sysctl /boot/sysctl.conf-%v
+RemainAfterExit=yes
+
+[Install]
+WantedBy=systemd-sysctl.service

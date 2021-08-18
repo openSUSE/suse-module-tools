@@ -24,10 +24,17 @@
 %if 0%{?suse_version} >= 1550
 %global modprobe_dir /usr/lib/modprobe.d
 %global depmod_dir /usr/lib/depmod.d
+%global with_kernel_sysctl 1
+# boot_sysctl may be dropped on TW when we can assume that nobody keeps
+# kernel packages around that store sysctl files under /boot
+%bcond_without boot_sysctl
 %else
 %global modprobe_dir /lib/modprobe.d
 %global depmod_dir /lib/depmod.d
+%global with_kernel_sysctl 0
+%global with_boot_sysctl 1
 %endif
+%global sysctl_dropin %{_unitdir}/systemd-sysctl.service.d/50-kernel-uname_r.conf
 
 # List of legacy file systems to be blacklisted by default
 %global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs hfs hpfs jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ufs
@@ -132,9 +139,17 @@ install -pm 755 "regenerate-initrd-posttrans" "%{buildroot}/usr/lib/module-init-
 install -d -m 755 "%{buildroot}%{_prefix}/bin"
 install -pm 755 kmp-install "%{buildroot}%{_bindir}/"
 
-# systemd service to load /boot/sysctl.conf-`uname -r`
+# systemd service(s) to load kernel-specific sysctl settings
 install -d -m 755 "%{buildroot}%{_unitdir}/systemd-sysctl.service.d"
-install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_unitdir}/systemd-sysctl.service.d"
+echo '[Unit]' >"%{buildroot}%{sysctl_dropin}"
+%if 0%{?with_kernel_sysctl}
+install -m 644 kernel-sysctl.service "%{buildroot}%{_unitdir}"
+echo 'Wants=kernel-sysctl.service' >>"%{buildroot}%{sysctl_dropin}"
+%endif
+%if 0%{?with_boot_sysctl}
+install -m 644 boot-sysctl.service "%{buildroot}%{_unitdir}"
+echo 'Wants=boot-sysctl.service' >>"%{buildroot}%{sysctl_dropin}"
+%endif
 
 # Ensure that the sg driver is loaded early (bsc#1036463)
 # Not needed in SLE11, where sg is loaded via udev rule.
@@ -208,6 +223,7 @@ exit 0
 %{_bindir}/kmp-install
 /usr/lib/module-init-tools
 %exclude /usr/lib/module-init-tools/weak-modules
+%{_unitdir}/*.service
 %{_unitdir}/systemd-sysctl.service.d
 %{_modulesloaddir}
 %ifarch ppc64 ppc64le
