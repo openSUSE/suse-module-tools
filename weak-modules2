@@ -325,16 +325,6 @@ previous_version_of_kmp() {
     echo "$old_kmp"
 }
 
-# write GZIP / XZ uncompressed file to stdout
-uncomp() {
-    local file=$1
-
-    if gzip -cd "$file" 2>/dev/null; then
-	return
-    fi
-    xz -cd "$file"
-}
-
 get_initrd_basenames() {
     $LSINITRD /boot/initrd-$1 | \
 	sed -rn 's:.*\<lib/modules/.*/::p' | \
