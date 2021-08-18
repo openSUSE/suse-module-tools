@@ -134,7 +134,11 @@ install -pm 755 kmp-install "%{buildroot}%{_bindir}/"
 
 # systemd service to load /boot/sysctl.conf-`uname -r`
 install -d -m 755 "%{buildroot}%{_unitdir}/systemd-sysctl.service.d"
+%if 0%{?suse_version} < 1550
+install -pm 644 50-kernel-uname_r.conf-legacy "%{buildroot}%{_unitdir}/systemd-sysctl.service.d/50-kernel-uname_r.conf"
+%else
 install -pm 644 50-kernel-uname_r.conf "%{buildroot}%{_unitdir}/systemd-sysctl.service.d"
+%endif
 
 # Ensure that the sg driver is loaded early (bsc#1036463)
 # Not needed in SLE11, where sg is loaded via udev rule.
