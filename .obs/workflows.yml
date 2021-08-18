@@ -1,0 +1,6 @@
+workflow:
+   steps:
+     - branch_package:
+         source_project: home:mwilck:suse-module-tools
+         source_package: suse-module-tools
+
