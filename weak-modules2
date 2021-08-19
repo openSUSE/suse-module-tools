@@ -108,7 +108,7 @@ doit() {
 }
 
 strip_mod_extensions() {
-    sed -rn 's/\.ko(\.[gx]z|\.zst)?$//p'
+    sed -rn '/^_kernel_$/p;s/\.ko(\.[gx]z|\.zst)?$//p'
 }
 
 # Name of the symlink that makes a module available to a given kernel
