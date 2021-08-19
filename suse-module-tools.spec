@@ -31,10 +31,10 @@
 %else
 %global modprobe_dir /lib/modprobe.d
 %global depmod_dir /lib/depmod.d
-%global with_kernel_sysctl 0
 %global with_boot_sysctl 1
 %endif
 %global sysctl_dropin %{_unitdir}/systemd-sysctl.service.d/50-kernel-uname_r.conf
+%global systemd_units %{?with_boot_sysctl:boot-sysctl.service} %{?with_kernel_sysctl:kernel-sysctl.service}
 
 # List of legacy file systems to be blacklisted by default
 %global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs hfs hpfs jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ufs
@@ -53,6 +53,7 @@ Group:          System/Base
 URL:            https://github.com/openSUSE/suse-module-tools
 Source0:        %{name}-%{version}.tar.xz
 Source1:        %{name}.rpmlintrc
+BuildRequires:  pkgconfig(systemd)
 Requires:       /usr/bin/grep
 Requires:       /usr/bin/gzip
 Requires:       /usr/bin/sed
@@ -142,11 +143,11 @@ install -pm 755 kmp-install "%{buildroot}%{_bindir}/"
 # systemd service(s) to load kernel-specific sysctl settings
 install -d -m 755 "%{buildroot}%{_unitdir}/systemd-sysctl.service.d"
 echo '[Unit]' >"%{buildroot}%{sysctl_dropin}"
-%if 0%{?with_kernel_sysctl}
+%if %{with kernel_sysctl}
 install -m 644 kernel-sysctl.service "%{buildroot}%{_unitdir}"
 echo 'Wants=kernel-sysctl.service' >>"%{buildroot}%{sysctl_dropin}"
 %endif
-%if 0%{?with_boot_sysctl}
+%if %{with boot_sysctl}
 install -m 644 boot-sysctl.service "%{buildroot}%{_unitdir}"
 echo 'Wants=boot-sysctl.service' >>"%{buildroot}%{sysctl_dropin}"
 %endif
@@ -178,10 +179,8 @@ install $mod /usr/lib/module-init-tools/unblacklist $mod; /sbin/modprobe --ignor
 done
 %endif
 
-%post
-exit 0
-
 %pre
+%service_add_pre %{systemd_units}
 # Avoid restoring old .rpmsave files in %posttrans
 for f in %{modprobe_conf_rpmsave}; do
     if [ -f ${f} ]; then
@@ -192,6 +191,18 @@ if [ -f %{_sysconfdir}/depmod.d/00-system.conf.rpmsave ]; then
     mv -f %{_sysconfdir}/depmod.d/00-system.conf.rpmsave \
           %{_sysconfdir}/depmod.d/00-system.conf.rpmsave.%{name}
 fi
+exit 0
+
+%post
+%service_add_post %{systemd_units}
+exit 0
+
+%preun
+%service_del_preun %{systemd_units}
+exit 0
+
+%postun
+%service_del_postun_without_restart %{systemd_units}
 exit 0
 
 %posttrans
