@@ -53,7 +53,7 @@ Group:          System/Base
 URL:            https://github.com/openSUSE/suse-module-tools
 Source0:        %{name}-%{version}.tar.xz
 Source1:        %{name}.rpmlintrc
-BuildRequires:  pkgconfig(systemd)
+BuildRequires:  systemd-rpm-macros
 Requires:       /usr/bin/grep
 Requires:       /usr/bin/gzip
 Requires:       /usr/bin/sed
