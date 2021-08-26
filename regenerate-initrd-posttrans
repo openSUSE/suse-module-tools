@@ -14,9 +14,9 @@
 shopt -s nullglob
 
 : ${DRACUT:=/usr/bin/dracut}
-if [[ ! -x "$DRACUT" ]]; then
-    echo "ERROR: $DRACUT not found" >&2
-    exit 1
+if [ ! -x "$DRACUT" ]; then
+    echo "${0##*/}: dracut is not installed, not rebuilding the initrd" >&2
+    exit 0
 fi
 
 dir=/run/regenerate-initrd
