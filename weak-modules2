@@ -90,7 +90,7 @@ find_depmod() {
 }
 
 log() {
-    [ -n "$opt_verbose" ] && echo "$@" >&2
+    [ $opt_verbose -gt 0 ] && echo "$@" >&2
 }
 
 doit() {
@@ -651,13 +651,30 @@ usage() {
 save_argv=("$@")
 options=`getopt -o vh --long add-kernel,remove-kernel,add-kmp,remove-kmp \
                       --long add-kernel-modules,remove-kernel-modules \
-		      --long usage,help,verbose,dry-run,debug -- "$@"`
+		      --long usage,help,verbose,dry-run,debug,logfile: -- "$@"`
 if [ $? -ne 0 ]; then
     usage >&2
     exit 1
 fi
 eval set -- "$options"
 mode=
+opt_logfile=$WM2_LOGFILE
+case $WM2_VERBOSE in
+    [0-3])
+	opt_verbose=$WM2_VERBOSE
+	;;
+    *)
+	opt_verbose=0
+	;;
+esac
+case $WM2_DEBUG in
+    1)
+	opt_debug=1
+	;;
+    *)
+	opt_debug=
+	;;
+esac
 while :; do
     case "$1" in
     --add-kernel | --remove-kernel | --add-kernel-modules | \
@@ -665,13 +682,17 @@ while :; do
 	mode="$1"
 	;;
     -v | --verbose)
-	opt_verbose=1
+	opt_verbose=$((opt_verbose + 1))
 	;;
     --dry-run)
 	opt_dry_run=1
 	;;
     --debug)
 	opt_debug=1
+	;;
+    --logfile)
+	shift
+	opt_logfile=$1
 	;;
     --usage)
 	usage
@@ -710,6 +731,17 @@ if [ -n "$err" ]; then
     echo "ERROR: $err" >&2
     usage >&2
     exit 1
+fi
+
+if [ -n "$opt_logfile" ]; then
+    [ "${opt_logfile#/}" != "$opt_logfile" ] || opt_logfile="/var/log/$opt_logfile"
+    echo "${0##/*}: appending output to $opt_logfile" >&2
+    exec 2>>"$opt_logfile"
+fi
+if [ $opt_verbose -gt 2 ]; then
+    set -x
+    # tracing will print everything, no need to print in log()
+    opt_verbose=$((opt_verbose - 3))
 fi
 
 #unset LANG LC_ALL LC_COLLATE
