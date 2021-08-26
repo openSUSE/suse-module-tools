@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Packages that install kernels or kernel-modules create a flag
 #
@@ -11,12 +11,10 @@
 # to have all initrds generated. This script is called from posttrans
 # and takes care of generating the initrds
 
-shopt -s nullglob
-
 : ${DRACUT:=/usr/bin/dracut}
-if [[ ! -x "$DRACUT" ]]; then
-    echo "ERROR: $DRACUT not found" >&2
-    exit 1
+if [ ! -x "$DRACUT" ]; then
+    echo "${0##*/}: dracut is not installed, not rebuilding the initrd" >&2
+    exit 0
 fi
 
 dir=/run/regenerate-initrd
@@ -25,6 +23,10 @@ if ! test -d "$dir"; then
 	exit 0
 fi
 for f in "$dir"/*; do
+	case $f in
+	    "$dir/*")
+		[ -e "$f" ] || break;;
+	esac
 	# check if we are in a build chroot
 	if ! [  -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
 		echo "Please run \"$DRACUT -f --regenerate-all\" as soon as your system is complete." >&2
@@ -41,6 +43,10 @@ if test -e "$dir/all"; then
 fi
 err=0
 for f in "$dir"/*; do
+	case $f in
+	    "$dir/*")
+		[ -e "$f" ] || break;;
+	esac
 	rm "$f"
 	image=${f##*/}
 	kver=${image#*-}
