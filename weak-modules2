@@ -461,23 +461,8 @@ run_depmod_build_initrd() {
     return $status
 }
 
-kernel_changed() {
-    local krel=$1 flavor=${1##*-}
-
-    if [ ! -f /boot/System.map-$krel ]; then
-	# this kernel does not exist anymore
-	dlog "kernel_changed: kernel removed"
-	return 0
-    fi
-    if [ ! -d /lib/modules/$krel ]; then
-	# a kernel without modules - rebuild initrd nevertheless (to mount the
-	# root fs, etc).
-	dlog "kernel_changed: kernel without modules"
-	echo "_kernel_" | run_depmod_build_initrd "$krel"
-	return
-    fi
-
-    find_kmps '*' $flavor || return 1
+walk_kmps() {
+    local krel=$1
     local kmps=( $(cat $tmpdir/kmps) )
 
     while :; do
@@ -487,7 +472,7 @@ kernel_changed() {
 	    kmp=${kmps[n]}
 	    [ -n "$kmp" ] || continue
 
-	    dlog "kernel_changed: checking $kmp for $krel"
+	    dlog "walk_kmps: checking $kmp for $krel"
 	    if kmp_is_present $kmp $krel; then
 		log "Package $kmp does not need to be added to kernel $krel"
 		kmps[n]=''
@@ -506,11 +491,29 @@ kernel_changed() {
 		kmps[n]=''
 		continue
 	    fi
-	    dlog "kernel_changed: skipped $kmp"
+	    dlog "walk_kmps: skipped $kmp"
 	    skipped=1
 	done
 	[ -n "$added" -a -n "$skipped" ] || break
     done
+}
+
+kernel_changed() {
+    local krel=$1 flavor=${1##*-}
+
+    if [ ! -f /boot/System.map-$krel ]; then
+	# this kernel does not exist anymore
+	dlog "kernel_changed: kernel removed"
+	return 0
+    fi
+    if [ ! -d /lib/modules/$krel ]; then
+	# a kernel without modules - rebuild initrd nevertheless (to mount the
+	# root fs, etc).
+	dlog "kernel_changed: kernel without modules"
+    elif find_kmps '*' $flavor; then
+	walk_kmps "$krel"
+    fi
+
     echo "_kernel_" | run_depmod_build_initrd "$krel"
 }
 
