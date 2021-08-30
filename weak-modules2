@@ -93,10 +93,12 @@ find_depmod() {
 
 log() {
     [ $opt_verbose -gt 0 ] && echo "$@" >&2
+    return 0
 }
 
 dlog() {
     [ $opt_verbose -gt 1 ] && echo "$@" >&2
+    return 0
 }
 
 doit() {
