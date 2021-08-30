@@ -95,7 +95,7 @@ read_modules_list() {
 	    module_krels[n]=$(krel_of_module "${modules[n]}")
 	else
 	    # Try to extract the kernel release from the path
-	    set -- "${modules[n]#/lib/modules/}"
+	    set -- "${modules[n]#*/lib/modules/}"
 	    module_krels[n]=${1%%/*}
 	fi
     done
@@ -215,10 +215,10 @@ if [ -n "$add_modules" ]; then
 		module=${modules[n]}
 		module_krel=${module_krels[n]}
 		case "$module" in
-		/lib/modules/$krel/*)
+		*/lib/modules/$krel/*)
 		    continue ;;
 		esac
-		subpath=${module#/lib/modules/$module_krel/updates}
+		subpath=${module#*/lib/modules/$module_krel/updates}
 		weak_module=/lib/modules/$krel/weak-updates/${subpath#/}
 		if [ -r "$weak_module" ]; then
 		    weak_krel=$(krel_of_module "$weak_module")
@@ -250,7 +250,7 @@ elif [ -n "$remove_modules" ]; then
 		module=${modules[n]}
 		[ -e "$module" ] && continue
 		module_krel=${module_krels[n]}
-		subpath=${module#/lib/modules/$module_krel/updates}
+		subpath=${module#*/lib/modules/$module_krel/updates}
 		weak_module=/lib/modules/$krel/weak-updates/${subpath#/}
 		if [ "$(readlink "$weak_module")" = "$module" ]; then
 		    [ -n "$verbose" ] && echo \
@@ -285,7 +285,7 @@ elif [ -n "$add_kernel" ]; then
 	[ "$add_krel" = "$krel" ] && continue
 	[ -d /lib/modules/$krel/updates ] || continue
 	for module in $(find /lib/modules/$krel/updates -name '*.ko'); do
-	    subpath=${module#/lib/modules/$krel/updates}
+	    subpath=${module#*/lib/modules/$krel/updates}
 	    weak_module=/lib/modules/$add_krel/weak-updates/${subpath#/}
 	    [ -e "$weak_module" ] && continue
 	    if module_is_compatible $module $add_krel; then

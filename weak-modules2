@@ -123,7 +123,7 @@ strip_mod_extensions() {
 symlink_to_module() {
     local module=$1 krel=$2
 
-    echo /lib/modules/$krel/weak-updates/${module#/lib/modules/*/}
+    echo /lib/modules/$krel/weak-updates/${module#*/lib/modules/*/}
 }
 
 # Is a kmp already present in or linked to from this kernel?
@@ -286,7 +286,7 @@ check_kmp() {
     local kmp=$1
 
     # Make sure all modules are for the same kernel
-    set -- $(sed -re 's:^/lib/modules/([^/]+)/.*:\1:' \
+    set -- $(sed -re 's:^.*/lib/modules/([^/]+)/.*:\1:' \
 		 $tmpdir/modules-$kmp \
 	     | sort -u)
     if [ $# -ne 1 ]; then
@@ -298,7 +298,7 @@ check_kmp() {
     dlog "check_kmp: $kmp contains modules for $1"
 
     # Make sure none of the modules are in kernel/ or weak-updates/
-    if grep -qE -e '^/lib/modules/[^/]+/(kernel|weak-updates)/' \
+    if grep -qE -e '^.*/lib/modules/[^/]+/(kernel|weak-updates)/' \
 	    $tmpdir/modules-$kmp; then
 	echo "Error: package $kmp must not install modules into " \
 	     "kernel/ or weak-updates/" >&2
@@ -323,7 +323,7 @@ find_kmps() {
 	    continue
 	fi
 	rpm -ql --nodigest --nosignature "$kmp" \
-	    | grep -Ee '^/lib/modules/[^/]+/.+\.ko(\.[gx]z|\.zst)?$' \
+	    | grep -Ee '^.*/lib/modules/[^/]+/.+\.ko(\.[gx]z|\.zst)?$' \
 	    > $tmpdir/modules-$kmp
 	if [ $? != 0 ]; then
 	    echo "WARNING: $kmp does not contain any kernel modules" >&2
