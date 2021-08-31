@@ -96,6 +96,15 @@ Use the following environment variables:
    commands called by weak-modules2. Equivalent to --debug.
  * WM2_LOGFILE: redirect the output to the given file.
 
+## Kernel scriptlet files
+
+The kernel-rpm-script, kernel-kmp-script, kernel-inkmp-script, and
+kernel-cert-script are used internally by kernel packages.
+
+### Capturing log output from kernel scripts
+
+ * KERNEL_PACKAGE_SCRIPT_DEBUG when non-empty enables some extra output to kernel log.
+
 ## Kernel-specific sysctl settings
 
 This package installs the file `50-kernel-uname_r.conf` which makes sure

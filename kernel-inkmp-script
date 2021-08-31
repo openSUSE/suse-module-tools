@@ -1,0 +1,109 @@
+#!/bin/sh
+
+op=${0##*-}
+
+version=""
+release=""
+name=""
+kernelrelease=""
+flavor=""
+variant=""
+usrmerged=""
+systemmap=""
+modulesdir=""
+certs=""
+
+while true ; do
+    case $1 in
+	--version)
+	    version="$2"
+	    shift
+	    ;;
+	--release)
+	    release="$2"
+	    shift
+	    ;;
+	--name)
+	    name="$2"
+	    shift
+	    ;;
+
+	--kernelrelease)
+	    kernelrelease="$2"
+	    shift
+	    ;;
+	--flavor)
+	    flavor="$2"
+	    shift
+	    ;;
+	--variant)
+	    variant="$2"
+	    shift
+	    ;;
+
+	--usrmerged)
+	    usrmerged="$2"
+	    shift
+	    ;;
+	--systemmap)
+	    systemmap="$2"
+	    shift
+	    ;;
+	--modulesdir)
+	    modulesdir="$2"
+	    shift
+	    ;;
+	--certs)
+	    certs="$2"
+	    shift
+	    ;;
+	*) break
+	    ;;
+    esac
+    shift
+done
+
+wm2=/usr/lib/module-init-tools/weak-modules2
+nvr="$name"-"$version"-"$release"
+
+run_wm2() {
+    [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo wm2 "$@" > /dev/kmsg
+    /bin/bash -${-/e/} $wm2 "$@"
+}
+
+[ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
+    echo KMP "$op" name: "$name" version: "$version" release: "$release" \
+    kernelrelease: "$kernelrelease" flavor: "$flavor" variant: "$variant" \
+    usrmerged: "$usrmerged" systemmap: "$systemmap" modulesdir: "$modulesdir" certs: "$certs" > /dev/kmsg
+
+script_rc=0
+
+case $op in
+    pre)
+	;;
+    preun)
+	rpm -ql "$nvr" | grep '\.ko\(\.xz\|\.gz\|\.zst\)\?$' > "/var/run/rpm-$nvr-modules" || script_rc=$?
+	;;
+    post)
+	if test -x "$wm2"; then
+	    rpm -ql "$nvr" | INITRD_IN_POSTTRANS=1 run_wm2 --add-kernel-modules $kernelrelease-$flavor || script_rc=$?
+	fi
+	;;
+    postun)
+	if test -x "$wm2"; then
+	    run_wm2 < "/var/run/rpm-$nvr-modules" --remove-kernel-modules $kernelrelease-$flavor || script_rc=$?
+	fi
+	rm -f "/var/run/rpm-$nvr-modules"
+	;;
+    posttrans)
+	eval "$(rpm -E "%{?regenerate_initrd_posttrans}")" || script_rc=$?
+	;;
+    *)
+	echo Unknown scriptlet "$op" >&2
+	exit 255
+	;;
+esac
+
+exit $script_rc
+
+# vim: set sts=4 sw=4 ts=8 noet:

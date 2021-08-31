@@ -64,6 +64,7 @@ Requires:       rpm
 Requires(post): /usr/bin/grep
 Requires(post): /usr/bin/sed
 Requires(post): coreutils
+Provides:       suse-kernel-rpm-scriptlets
 # Use weak dependencies for dracut and kmod in order to
 # keep Ring0 lean. In normal deployments, these packages
 # will be available anyway.
@@ -135,6 +136,16 @@ install -d -m 755 "%{buildroot}%{_rpmmacrodir}"
 install -pm 644 "macros.initrd" "%{buildroot}%{_rpmmacrodir}"
 %endif
 install -pm 755 "regenerate-initrd-posttrans" "%{buildroot}/usr/lib/module-init-tools/"
+install -pm 755 "kernel-cert-script" "%{buildroot}/usr/lib/module-init-tools/"
+install -pm 755 "kernel-inkmp-script" "%{buildroot}/usr/lib/module-init-tools/"
+install -pm 755 "kernel-kmp-script" "%{buildroot}/usr/lib/module-init-tools/"
+install -pm 755 "kernel-rpm-script" "%{buildroot}/usr/lib/module-init-tools/"
+for i in "pre" "preun" "post" "posttrans" "postun" ; do
+    ln -s kernel-cert-script %{buildroot}/usr/lib/module-init-tools/kernel-cert-$i
+    ln -s kernel-inkmp-script %{buildroot}/usr/lib/module-init-tools/kernel-inkmp-$i
+    ln -s kernel-kmp-script %{buildroot}/usr/lib/module-init-tools/kernel-kmp-$i
+    ln -s kernel-rpm-script %{buildroot}/usr/lib/module-init-tools/kernel-rpm-$i
+done
 
 install -d -m 755 "%{buildroot}%{_prefix}/bin"
 install -pm 755 kmp-install "%{buildroot}%{_bindir}/"
