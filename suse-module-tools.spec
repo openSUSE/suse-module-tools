@@ -47,7 +47,9 @@ Source11:       macros.initrd
 Source12:       regenerate-initrd-posttrans
 Source13:       50-kernel-uname_r.conf
 Source15:       LICENSE
+Source16:       kernel-scriptlets.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
+Provides:       suse-kernel-rpm-scriptlets = 0
 # This release requires the dracut fix for bsc#1127891
 # for the csiostor->cxgb4 softdep, but only on SLE12-SP4 and
 # later, because there cxgb4 further dependencies.
@@ -62,7 +64,7 @@ modprobe. These utilities are provided by kmod-compat or
 module-init-tools, whichever implementation you choose to install.
 
 %prep
-%setup -Tcqa2
+%setup -Tcqa2 -a 16
 cp %{SOURCE15} .
 
 %build
@@ -74,7 +76,7 @@ install -pm644 "%_sourcedir/README.SUSE" "$b/%_docdir/module-init-tools"
 #
 # now assemble the parts for modprobe.conf
 #
-cd modprobe.conf
+pushd modprobe.conf
 cp modprobe.conf.common 00-system.conf
 if [ -f "modprobe.conf.$RPM_ARCH" ]; then
 	cat "modprobe.conf.$RPM_ARCH" >>00-system.conf
@@ -87,6 +89,7 @@ install -pm644 modprobe.conf.local "$b/etc/modprobe.d/99-local.conf"
 install -d -m 755 "$b/etc/depmod.d"
 install -pm 644 "%_sourcedir/depmod-00-system.conf" \
 	"$b/etc/depmod.d/00-system.conf"
+popd
 
 # "module-init-tools" name hardcoded in KMPs, mkinitrd, etc.
 install -d -m 755 "$b/usr/lib/module-init-tools"
@@ -97,6 +100,17 @@ install -pm 755 %_sourcedir/driver-check.sh "$b/usr/lib/module-init-tools/"
 install -d -m 755 "$b/etc/rpm"
 install -pm 644 "%_sourcedir/macros.initrd" "$b/etc/rpm/"
 install -pm 755 "%_sourcedir/regenerate-initrd-posttrans" "$b/usr/lib/module-init-tools/"
+install -d -m 755 "%{buildroot}/usr/lib/module-init-tools/kernel-scriptlets"
+install -pm 755 "kernel-scriptlets/cert-script" "%{buildroot}/usr/lib/module-init-tools/kernel-scriptlets"
+install -pm 755 "kernel-scriptlets/inkmp-script" "%{buildroot}/usr/lib/module-init-tools/kernel-scriptlets"
+install -pm 755 "kernel-scriptlets/kmp-script" "%{buildroot}/usr/lib/module-init-tools/kernel-scriptlets"
+install -pm 755 "kernel-scriptlets/rpm-script" "%{buildroot}/usr/lib/module-init-tools/kernel-scriptlets"
+for i in "pre" "preun" "post" "posttrans" "postun" ; do
+    ln -s cert-script %{buildroot}/usr/lib/module-init-tools/kernel-scriptlets/cert-$i
+    ln -s inkmp-script %{buildroot}/usr/lib/module-init-tools/kernel-scriptlets/inkmp-$i
+    ln -s kmp-script %{buildroot}/usr/lib/module-init-tools/kernel-scriptlets/kmp-$i
+    ln -s rpm-script %{buildroot}/usr/lib/module-init-tools/kernel-scriptlets/rpm-$i
+done
 
 # modsign-verify for verifying module signatures
 install -d -m 755 "$b/usr/bin"
