@@ -1,0 +1,95 @@
+#!/bin/sh
+
+op=${0##*-}
+
+ca_check=""
+certs=""
+
+while true ; do
+    case $1 in
+	--ca-check)
+	    ca_check="$2"
+	    shift
+	    ;;
+	--certs)
+	    certs="$2"
+	    shift
+	    ;;
+	*) break
+	    ;;
+    esac
+    shift
+done
+
+run_mokutil () {
+    [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo mokutil "$@" >&2
+    mokutil "$@"
+}
+
+[ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo "cert $op" ca-check: "$ca_check" certs: "$certs" -- "$@" >&2
+
+script_rc=0
+
+case $op in
+    pre)
+	;;
+    post)
+	if command -v mokutil >/dev/null; then
+	    # Only apply CA check on the kernel package certs (bsc#1173115)
+	    if [ -n "$ca_check" ] && mokutil -h | grep -q "ca-check"; then
+		MOK_ARG="--ca-check"
+	    else
+		MOK_ARG=""
+	    fi
+	    # XXX: Only call mokutil if UEFI and shim are used
+	    for cert in $certs; do
+		cert="/etc/uefi/certs/${cert}.crt"
+		run_mokutil --import "$cert" --root-pw ${MOK_ARG}
+		rc=$?
+		if [ $rc != 0 ] ; then
+		    script_rc=$rc
+		    echo "Failed to import $cert" >&2
+		fi
+	    done
+	fi
+	;;
+    preun)
+	if command -v mokutil >/dev/null; then
+	    for cert in $certs; do
+		cert="/etc/uefi/certs/${cert}.crt"
+		# Here we queue the certificate for de-enrollment. If by postun
+		# the certificate does not exist last kernel using it was
+		# removed and we can queue it for de-enrollment with mokutil.
+		ln "$cert" "$cert.delete" || script_rc=$?
+	    done
+	fi
+	;;
+    postun)
+	if command -v mokutil >/dev/null; then
+	    for cert in $certs; do
+		cert="/etc/uefi/certs/${cert}.crt"
+		# If the certificate is now gone there are no users left
+		# queue -> de-enrollment
+		if ! test -e "$cert"; then
+		    run_mokutil --delete "$cert.delete" --root-pw
+		    rc=$?
+		    if [ $rc != 0 ] ; then
+			script_rc=$rc
+			echo "Failed to delete $cert" >&2
+		    fi
+		fi
+		rm "$cert.delete" || script_rc=$?
+	    done
+	fi
+	;;
+    posttrans)
+	;;
+    *)
+	echo Unknown scriptlet "$op" >&2
+	script_rc=255
+	;;
+esac
+
+exit $script_rc
+
+# vim: set sts=4 sw=4 ts=8 noet:
