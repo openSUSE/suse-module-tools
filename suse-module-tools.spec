@@ -38,6 +38,7 @@ Recommends:	mkinitrd
 Requires:       /sbin/depmod
 Requires:       rpm
 Requires:       sed
+Provides:       suse-kernel-rpm-scriptlets = 0
 # This release requires the dracut fix for bsc#1127891
 Conflicts:	dracut < 44.2
 
@@ -97,6 +98,17 @@ install -pm 755 driver-check.sh "%{buildroot}%{_libexecdir}/module-init-tools/"
 install -d -m 755 "%{buildroot}%{_sysconfdir}/rpm"
 install -pm 644 "macros.initrd" "%{buildroot}%{_sysconfdir}/rpm/"
 install -pm 755 "regenerate-initrd-posttrans" "%{buildroot}%{_libexecdir}/module-init-tools/"
+install -d -m 755 "%{buildroot}/usr/lib/module-init-tools/kernel-scriptlets"
+install -pm 755 "kernel-scriptlets/cert-script" "%{buildroot}/usr/lib/module-init-tools/kernel-scriptlets"
+install -pm 755 "kernel-scriptlets/inkmp-script" "%{buildroot}/usr/lib/module-init-tools/kernel-scriptlets"
+install -pm 755 "kernel-scriptlets/kmp-script" "%{buildroot}/usr/lib/module-init-tools/kernel-scriptlets"
+install -pm 755 "kernel-scriptlets/rpm-script" "%{buildroot}/usr/lib/module-init-tools/kernel-scriptlets"
+for i in "pre" "preun" "post" "posttrans" "postun" ; do
+    ln -s cert-script %{buildroot}/usr/lib/module-init-tools/kernel-scriptlets/cert-$i
+    ln -s inkmp-script %{buildroot}/usr/lib/module-init-tools/kernel-scriptlets/inkmp-$i
+    ln -s kmp-script %{buildroot}/usr/lib/module-init-tools/kernel-scriptlets/kmp-$i
+    ln -s rpm-script %{buildroot}/usr/lib/module-init-tools/kernel-scriptlets/rpm-$i
+done
 
 # modsign-verify for verifying module signatures
 install -d -m 755 "%{buildroot}%{_prefix}/bin"
