@@ -174,7 +174,7 @@ EOF
 	    script_rc=1
 	fi
 
-	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scripts/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
+	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
 	;;
     post)
 	# Flag to trigger /etc/init.d/purge-kernels on next reboot (fate#312018)
@@ -243,10 +243,10 @@ EOF
 	    fi
 	fi
 
-	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scripts/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
+	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
 	;;
     preun)
-	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scripts/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
+	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
 	;;
     postun)
 	# If a kernel package is removed before the next reboot, we assume that the
@@ -278,7 +278,7 @@ EOF
 	    fi
 	fi
 
-	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scripts/cert-$op --ca-check 1 --certs "$certs" "$@"
+	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@"
 	;;
     posttrans)
 	;;
