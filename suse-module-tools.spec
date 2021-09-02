@@ -79,8 +79,7 @@ Conflicts:      filesystem < 15.5-40.2
 %description
 This package contains helper scripts for KMP installation and
 uninstallation, as well as default configuration files for depmod and
-modprobe. These utilities are provided by kmod-compat or
-module-init-tools, whichever implementation you choose to install.
+modprobe.
 
 
 %package legacy
