@@ -98,8 +98,8 @@ Use the following environment variables:
 
 ## Kernel scriptlet files
 
-The kernel-rpm-script, kernel-kmp-script, kernel-inkmp-script, and
-kernel-cert-script are used internally by kernel packages.
+The scripts in kernel-scriptlets directory are used internally by kernel
+packages.
 
 ### Capturing log output from kernel scripts
 
