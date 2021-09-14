@@ -1,0 +1,293 @@
+#!/bin/sh
+
+op=${0##*-}
+
+name=""
+version=""
+release=""
+kernelrelease=""
+flavor=""
+variant=""
+usrmerged="0"
+image=""
+certs=""
+
+while true ; do
+    case $1 in
+	--name)
+	    name="$2"
+	    shift
+	    ;;
+	--version)
+	    version="$2"
+	    shift
+	    ;;
+	--release)
+	    release="$2"
+	    shift
+	    ;;
+
+	--kernelrelease)
+	    kernelrelease="$2"
+	    shift
+	    ;;
+	--flavor)
+	    flavor="$2"
+	    shift
+	    ;;
+	--variant)
+	    variant="$2"
+	    shift
+	    ;;
+
+	--usrmerged)
+	    usrmerged="$2"
+	    shift
+	    ;;
+	--image)
+	    image="$2"
+	    shift
+	    ;;
+	--certs)
+	    certs="$2"
+	    shift
+	    ;;
+
+	*) break
+	    ;;
+    esac
+    shift
+done
+
+wm2=/usr/lib/module-init-tools/weak-modules2
+nvr="$name"-"$version"-"$release"
+
+if [ "$usrmerged" -ne 0 ] ; then
+    modules_dir=/usr/lib/modules/$kernelrelease-$flavor
+    system_map=${modules_dir}/System.map
+else
+    modules_dir=/lib/modules/$kernelrelease-$flavor
+    system_map=/boot/System.map-$kernelrelease-$flavor
+fi
+
+trigger_purge_kernels() {
+    [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo Triggering purge-kernels >&2
+    touch /boot/do_purge_kernels
+}
+
+disarm_purge_kernels() {
+    [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo Disarming purge-kernels >&2
+    rm -f /boot/do_purge_kernels
+}
+
+run_wm2() {
+    [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo wm2 "$@" >&2
+    /bin/bash -${-/e/} $wm2 "$@"
+}
+
+message_install_bl () {
+    echo "You may need to setup and install the boot loader using the"
+    echo "available bootloader for your platform (e.g. grub, lilo, zipl, ...)."
+}
+
+run_bootloader () {
+    if [ -f /etc/sysconfig/bootloader ] &&
+	[ -f /boot/grub/menu.lst -o \
+	-f /etc/lilo.conf      -o \
+	-f /etc/elilo.conf     -o \
+	-f /etc/zipl.conf      -o \
+	-f /etc/default/grub    ]
+	then
+	    return 0
+	else
+	    return 1
+    fi
+}
+
+[ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
+    echo "$op" name: "$name" version: "$version" release: "$release" \
+    kernelrelease: "$kernelrelease" flavor: "$flavor" variant: "$variant" \
+    usrmerged: "$usrmerged" image: "$image" certs: "$certs" -- "$@" >&2
+
+script_rc=0
+
+case $op in
+    pre)
+	# see bug #259303
+	# this script runs when the kernel gets updated with YaST
+	# YaST calls rpm always with -U
+	# -U replaces all packages with the new one
+	# rpm removes the files from the old packages after the postinstall script ran
+	# this will double the required space below /boot
+	# remove the files from the old packages to make room for the new initrd
+	# rpm may complain about low disk space if /boot/vmlinux does not fit
+	if [ "$YAST_IS_RUNNING" != "" ]; then
+	    mydf="$( POSIXLY_CORRECT=1 df -P /boot/ | awk '/^(\/|-[[:blank:]])/{ print $4}' )"
+	    if test "$mydf" != "" ; then
+		echo "Free diskspace below /boot: $mydf blocks"
+		# echo "512 byte blocks: $(( 2 * 1024 * 20 ))"
+		if test "$mydf" -lt  "40960" ; then
+		    echo "make room for new kernel '"$flavor"' because there are less than 20MB available."
+		    # disabled because it breaks patch rpms
+		    #rm -fv /boot/"$image"-*-"$flavor"
+		    rm -fv /boot/initrd-*-"$flavor"
+		fi
+	    fi
+	fi
+
+	# On AArch64 we switched from 64k PAGE_SIZE to 4k PAGE_SIZE. Unfortunately
+	# btrfs can only use file systems created with the same PAGE_SIZE. So we
+	# check if the user has any btrfs file systems mounted and refuse to install
+	# in that case.
+	if [ $( uname -m ) = aarch64 -a \
+	    "$( zgrep CONFIG_ARM64_64K_PAGES=y /proc/config.gz )" -a \
+	    "$flavor" = default ]; then
+	    if [ "$FORCE_4K" = 1 ]; then
+		# The user knows what he's doing, let him be.
+		exit 0
+	    fi
+
+	    if [ "$YAST_IS_RUNNING" = "instsys" ]; then
+		# We're probably test installing the kernel, that should succeed
+		exit 0
+	    fi
+
+	    cat >&2 <<-EOF
+You are running on a 64kb PAGE_SIZE kernel. The default kernel
+switched to 4kb PAGE_SIZE which will prevent it from mounting btrfs
+or the swap partition.
+
+To ensure that your system still works, I am refusing to install
+this kernel. If you want to force installation regardlesss, reinstall
+with the environment variable FORCE_4K set to 1.
+
+To stay with a 64kb PAGE_SIZE kernel, please follow these steps:
+
+        $ zypper in kernel-64kb
+        [ reboot into the new kernel ]
+        $ zypper rm kernel-default
+
+You will then be on the 64kb PAGE_SIZE kernel and can update your
+system normally.
+EOF
+
+	    script_rc=1
+	fi
+
+	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scripts/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
+	;;
+    post)
+	# Flag to trigger /etc/init.d/purge-kernels on next reboot (fate#312018)
+	# ... but avoid the first installion (bsc#1180058)
+	[ "$1" -gt 1 ] && trigger_purge_kernels || script_rc=$?
+
+	for x in /boot/"$image" /boot/initrd; do
+	    rm -f $x
+	    ln -s ${x##*/}-"$kernelrelease"-"$flavor" $x
+	done
+
+	if [ "$usrmerged" -ne 0 ] ; then
+	    # compat stuff for /boot.
+	    # if /boot and /usr are not speparate partitions we can just link
+	    # the kernel there to save space. Otherwise copy.
+	    if mountpoint -q /boot || mountpoint -q /usr; then
+		copy_or_link="cp -a"
+	    else
+		copy_or_link="ln -sf"
+	    fi
+	    # XXX: need to fix suse-module-tools for sysctl.conf and System.map
+	    for x in "$image" sysctl.conf System.map; do
+		if [ ! -e /boot/$x-"$kernelrelease"-"$flavor" ]; then
+		    $copy_or_link .."$modules_dir"/$x /boot/$x-"$kernelrelease"-"$flavor" || script_rc=$?
+		    if [ -e "$modules_dir"/.$x.hmac ]; then
+			$copy_or_link .."$modules_dir"/.$x.hmac /boot/.$x-"$kernelrelease"-"$flavor".hmac || script_rc=$?
+		    fi
+		fi
+	    done
+	fi
+
+	# Add symlinks of compatible modules to /lib/modules/$krel/weak-updates/,
+	# run depmod and mkinitrd
+	if [ -x $wm2 ]; then
+	    run_wm2 --add-kernel "$kernelrelease"-"$flavor" || script_rc=$?
+	else
+	    echo "$wm2 does not exist, please run depmod and mkinitrd manually" >&2
+	    script_rc=1
+	fi
+
+	if [ ! -e /.buildenv ] ; then
+	    if [ -f /etc/fstab ] ; then
+		# only run the bootloader if the usual bootloader configuration
+		# files are there -- this is different on every architecture
+		initrd=initrd-"$kernelrelease"-"$flavor"
+		if [ "$flavor" = rt ]; then
+		    default=force-default
+		fi
+		if [ -e /boot/$initrd -o ! -e "$modules_dir" ] && \
+		    run_bootloader ; then
+		    [ -e /boot/$initrd ] || initrd=
+		    if [ -x /usr/lib/bootloader/bootloader_entry ]; then
+			/usr/lib/bootloader/bootloader_entry \
+			    add \
+			    "$flavor" \
+			    "$kernelrelease"-"$flavor" \
+			    "$image"-"$kernelrelease"-"$flavor" \
+			    $initrd \
+			    $default || script_rc=$?
+		    else
+			message_install_bl
+		    fi
+		fi
+	    else
+		message_install_bl
+	    fi
+	fi
+
+	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scripts/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
+	;;
+    preun)
+	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scripts/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
+	;;
+    postun)
+	# If a kernel package is removed before the next reboot, we assume that the
+	# multiversion variable in /etc/zypp/zypp.conf is not configured and we delete
+	# the flag again (fate#312018)
+	disarm_purge_kernels
+
+	if [ -e "$system_map" ]; then
+	    # the same package was reinstalled or just rebuilt, otherwise the files
+	    # would have been deleted by now
+	    # do not remove anything in this case (bnc#533766)
+	    exit 0
+	fi
+
+	# Remove symlinks from "$modules_dir"/weak-updates/.
+	if [ -x $wm2 ]; then
+	    run_wm2 --remove-kernel "$kernelrelease"-"$flavor"
+	fi
+
+	# remove fstab check once perl-Bootloader can cope with it
+	if [ -f /etc/fstab ]; then
+	    if [ -x /usr/lib/bootloader/bootloader_entry ]; then
+		/usr/lib/bootloader/bootloader_entry \
+		    remove \
+		    "$flavor" \
+		    "$kernelrelease"-"$flavor" \
+		    "$image"-"$kernelrelease"-"$flavor" \
+		    initrd-"$kernelrelease"-"$flavor"
+	    fi
+	fi
+
+	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scripts/cert-$op --ca-check 1 --certs "$certs" "$@"
+	;;
+    posttrans)
+	;;
+    *)
+	echo Unknown scriptlet "$op" >&2
+	exit 255
+	;;
+esac
+
+exit $script_rc
+
+# vim: set sts=4 sw=4 ts=8 noet:
