@@ -323,7 +323,7 @@ find_kmps() {
 	    continue
 	fi
 	rpm -ql --nodigest --nosignature "$kmp" \
-	    | grep -Ee '^/lib/modules/[^/]+/.+\.ko(\.[gx]z|\.zst)?$' \
+	    | sed -nr 's:^(/usr)?(/lib/modules/[^/]+/.+\.ko)(\.[gx]z|\.zst)?$:\2\3:p' \
 	    > $tmpdir/modules-$kmp
 	if [ $? != 0 ]; then
 	    echo "WARNING: $kmp does not contain any kernel modules" >&2
@@ -608,7 +608,7 @@ remove_kmp() {
 
     # Read the list of module names from standard input
     # (This kmp may already have been removed!)
-    cat > $tmpdir/modules-$kmp
+    sed 's:^/usr::' > $tmpdir/modules-$kmp
     check_kmp "$kmp" || return 1
 
     local dir krel status
