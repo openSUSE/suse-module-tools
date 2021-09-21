@@ -86,6 +86,24 @@ time of a service pack in SUSE Enterprise Linux. See the
 [SUSE SolidDriver Program](https://drivers.suse.com/doc/SolidDriver/) for
 details.
 
+### Capturing log output from weak_modules2
+
+Use the following environment variables:
+
+ * WM2_VERBOSE: value from 0 (default, no logging) - 3 (tracing).
+   the -v/--verbose option increases log level by one.
+ * WM2_DEBUG: 0 (default) or 1. Enables verbose output of certain
+   commands called by weak-modules2. Equivalent to --debug.
+ * WM2_LOGFILE: redirect the output to the given file.
+
+## Kernel scriptlet files
+
+The scripts in kernel-scriptlets directory are used internally by kernel
+packages.
+
+### Capturing log output from kernel scripts
+
+ * KERNEL_PACKAGE_SCRIPT_DEBUG when non-empty enables some extra output to kernel log.
 
 ## Kernel-specific sysctl settings
 
