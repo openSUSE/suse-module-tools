@@ -642,12 +642,7 @@ remove_kmp() {
 	[ -d $dir -a -f /boot/System.map-$krel ] || continue
 	dlog "remove_kmp: processing $kmp for $krel"
 	if kmp_is_present $kmp $krel; then
-	    local other_found=0 inconsistent=0
-
-	    if opt_debug=1 has_unresolved_symbols "$krel" "/" \
-			>$tmpdir/unresolved-"$krel" 2>&1; then
-		inconsistent=1
-	    fi
+	    local other_found=0
 
             if [ $krel != "$(cat $tmpdir/krel-$kmp)" ]; then
                 remove_kmp_modules "$kmp" "$krel"
@@ -672,16 +667,10 @@ remove_kmp() {
 		log "Package $kmp removed from kernel $krel"
 		if [ $other_found -eq 1 ]; then
 		    log "Weak-updates symlinks to no other $kmpshort package could be created"
-		    if [ $inconsistent -eq 1 ]; then
-			echo "Warning: /lib/modules/$krel was inconsistent before removal of $kmp" >&2
-			[ -s $tmpdir/unresolved-"$krel" ] && \
-			    cat $tmpdir/unresolved-"$krel"
-		    fi
 		fi
 		run_depmod_build_initrd "$krel" <$tmpdir/basenames-$kmp || \
 		    status=1
 	    fi
-	    rm -f $tmpdir/unresolved-"$krel"
 	fi
     done
     dlog "remove_kmp: status=$status"
