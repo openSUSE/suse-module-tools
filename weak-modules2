@@ -175,9 +175,9 @@ add_kmp_modules() {
     local module symlink
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
-	doit mkdir -p ${opt_debug:+-v} $basedir${symlink%/*} || exit 1
-	doit ln -sf ${opt_debug:+-v} $module $basedir$symlink || exit 1
-	dlog "add_kmp_modules: added $module to $krel"
+	mkdir -p $basedir${symlink%/*} || exit 1
+	ln -sf $module $basedir$symlink || exit 1
+	dlog "add_kmp_modules: added $module to $krel in $basedir"
     done < $tmpdir/modules-$kmp
 }
 
@@ -190,7 +190,7 @@ remove_kmp_modules() {
     local module symlink
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
-	doit rm -f ${opt_debug:+-v} $basedir$symlink
+	rm -f $basedir$symlink
 	dlog "remove_kmp_modules: removed $module from $krel"
     done < $tmpdir/modules-$kmp
 }
