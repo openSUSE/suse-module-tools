@@ -570,10 +570,6 @@ add_kmp() {
         esac
 	dlog "add_kmp: processing $kmp for $krel"
 	[ -d $dir -a -f /boot/System.map-$krel ] || continue
-	if opt_debug=1 has_unresolved_symbols "$krel" "/"; then
-	    echo "Warning: /lib/modules/$krel is inconsistent" >&2
-	    echo "Warning: weak-updates symlinks might not be created" >&2
-	fi
 
 	if kmp_is_present $kmp $krel; then
 	    log "Package $kmp does not need to be added to kernel $krel"
@@ -594,8 +590,14 @@ add_kmp() {
 		cat $tmpdir/basenames-{$old_kmp,$kmp} \
 		| run_depmod_build_initrd "$krel" || status=1
 	    fi
+	elif [[ $old_kmp ]]; then
+	    log "Package $old_kmp kept in kernel $krel (not replaced by $kmp)"
 	else
-	    dlog "add_kmp: skipped $kmp"
+	    echo "FAILED to add $kmp in kernel $krel" >&2
+	    if [[ $opt_debug -gt 0 ]] && \
+		   has_unresolved_symbols "$krel" "/"; then
+		echo "Warning: /lib/modules/$krel is inconsistent" >&2
+	    fi
 	fi
     done
     dlog "add_kmp: status=$status"
