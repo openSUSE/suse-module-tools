@@ -129,6 +129,7 @@ doit() {
     else
 	:
     fi
+    log "Done $1"
 }
 
 strip_mod_extensions() {
@@ -231,7 +232,9 @@ has_unresolved_symbols() {
 	    echo "WARNING: System.map not found for $krel, symbol resolution may fail" >&2
 	fi
     fi
+    log "$DEPMOD -b $basedir -ae ${args[@]} $krel"
     output="$("$DEPMOD" -b "$basedir" -ae "${args[@]}" $krel 2>&1)"
+    log "$DEPMOD finished"
     status=$?
     if [ $status -ne 0 ]; then
 	echo "$output" >&2
@@ -391,7 +394,7 @@ previous_version_of_kmp() {
 }
 
 get_initrd_basenames() {
-    $LSINITRD /boot/initrd-$1 | \
+    doit $LSINITRD /boot/initrd-$1 | \
 	sed -rn 's:.*\<lib/modules/.*/::p' | \
 	strip_mod_extensions
 
@@ -744,7 +747,7 @@ usage() {
 
 ##############################################################################
 
-save_argv=("$@")
+echo "weak-modules2 startup" >&2
 options=`getopt -o vh --long add-kernel,remove-kernel,add-kmp,remove-kmp \
                       --long add-kernel-modules,remove-kernel-modules \
 		      --long usage,help,verbose,dry-run,debug,logfile: -- "$@"`
@@ -869,4 +872,5 @@ case $mode in
     remove_kmp "$1"
 esac
 
+echo "weak-modules2 finished" >&2
 # vim:shiftwidth=4 softtabstop=4
