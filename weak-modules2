@@ -212,7 +212,8 @@ create_temporary_modules_dir() {
 
 # Check for unresolved symbols
 has_unresolved_symbols() {
-    local krel=$1 basedir=$2 output status args sym_errors _f
+    local krel=$1 basedir=$2 kmp=$3 kmp_mods=()
+    local output status args sym_errors _f
 
     if [ ! -e "$tmpdir/symvers-$krel" ]; then
 	_f=$(find_usrmerge_boot symvers "$krel" gz)
@@ -221,8 +222,8 @@ has_unresolved_symbols() {
 	    zcat "$_f" >"$tmpdir/symvers-$krel"
 	fi
     fi
-    if [ -e $tmpdir/symvers-$krel ]; then
-	args=(-E $tmpdir/symvers-$krel)
+    if [ -e "$tmpdir/symvers-$krel" ]; then
+	args=(-E "$tmpdir/symvers-$krel")
     else
 	echo "WARNING: symvers.gz not found for $krel, symbol resolution will be unreliable" >&2
 	_f=$(find_usrmerge_boot System.map "$krel")
@@ -232,10 +233,25 @@ has_unresolved_symbols() {
 	    echo "WARNING: System.map not found for $krel, symbol resolution may fail" >&2
 	fi
     fi
-    log "$DEPMOD -b $basedir -ae ${args[@]} $krel"
-    output="$("$DEPMOD" -b "$basedir" -ae "${args[@]}" $krel 2>&1)"
-    log "$DEPMOD finished"
-    status=$?
+    if [[ $WM2_DEPMOD_INC && $kmp ]]; then
+	mapfile -t kmp_mods <"$tmpdir/modules-$kmp"
+	# prepend $basedir
+	kmp_mods=("${kmp_mods[@]/#/$basedir}")
+
+	log "$DEPMOD -b $basedir -ae ${args[*]} -I $krel ${kmp_mods[*]}"
+	output="$("$DEPMOD" -I -b "$basedir" -ae "${args[@]}" "$krel" "${kmp_mods[@]}" 2>&1)"
+	status=$?
+	log "$DEPMOD finished"
+    else
+	status=1
+    fi
+    if [[ $status -ne 0 ]]; then
+	# Fallback to full depmod
+	log "$DEPMOD -b $basedir -ae ${args[*]} $krel"
+	output="$("$DEPMOD" -b "$basedir" -ae "${args[@]}" $krel 2>&1)"
+	status=$?
+	log "$DEPMOD finished"
+    fi
     if [ $status -ne 0 ]; then
 	echo "$output" >&2
 	echo "depmod exited with error $status" >&2
@@ -288,7 +304,7 @@ __can_replace_kmp() {
 	return 1
     fi
     doit=1 add_kmp_modules "$new_kmp" "$krel" "$basedir"
-    if has_unresolved_symbols "$krel" "$basedir"; then
+    if has_unresolved_symbols "$krel" "$basedir" "$new_kmp"; then
 	doit=1 remove_kmp_modules "$new_kmp" "$krel" "$basedir"
 	doit=1 add_kmp_modules "$old_kmp" "$krel" "$basedir"
 	return 1
