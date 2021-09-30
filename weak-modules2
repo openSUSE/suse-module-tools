@@ -117,7 +117,7 @@ doit() {
 }
 
 strip_mod_extensions() {
-    sed -rn '/^_kernel_$/p;s/\.ko(\.[gx]z|\.zst)?$//p'
+    sed -rn 's/\.ko(\.[gx]z|\.zst)?$//p'
 }
 
 # Name of the symlink that makes a module available to a given kernel
@@ -399,9 +399,9 @@ get_initrd_basenames() {
 }
 
 # test if rebuilding initrd is needed for $krel.
-# stdin - list of changed modules ("_kernel_" for the whole kernel)
+# stdin - list of changed modules
 needs_initrd() {
-    local krel=$1
+    local krel=$1 is_kernel=$2
 
     # Don't generate an initrd for kdump here. It's done automatically with mkdumprd when
     # /etc/init.d/boot.kdump is called to load the kdump kernel. See mkdumprd(8) why
@@ -422,13 +422,14 @@ needs_initrd() {
 	return 0
     fi
 
-    local changed_basenames=($(strip_mod_extensions | sort -u))
-    dlog "needs_initrd: changed_basenames: " $changed_basenames
-
-    if [ "$changed_basenames" = "_kernel_" ]; then
+    if [[ $is_kernel ]]; then
 	dlog "needs_initrd: yes, kernel package"
 	return 0
     fi
+
+    local changed_basenames=($(strip_mod_extensions | sort -u))
+    dlog "needs_initrd: changed_basenames: " $changed_basenames
+
     if [ ! -e /boot/initrd-$krel ]; then
 	dlog "needs_initrd: yes, initrd doesn't exist yet"
 	return 0
@@ -447,15 +448,15 @@ needs_initrd() {
 }
 
 # run depmod and rebuild initrd for kernel version $krel
-# stdin - list of changed modules ("_kernel_" for a whole kernel)
+# stdin - list of changed modules
 run_depmod_build_initrd() {
-    local krel=$1
+    local krel=$1 is_kernel=$2
     local status=0
 
     if [ -d /lib/modules/$krel -a -f /boot/System.map-$krel ] ; then
 	doit "$DEPMOD" -F /boot/System.map-$krel -ae $krel || return 1
     fi
-    if needs_initrd $krel; then
+    if needs_initrd $krel $is_kernel; then
 	local image
 	for x in vmlinuz image vmlinux linux bzImage uImage Image zImage; do
 	    if [ -f /boot/$x-$krel ]; then
@@ -531,7 +532,7 @@ kernel_changed() {
 	walk_kmps "$krel"
     fi
 
-    echo "_kernel_" | run_depmod_build_initrd "$krel"
+    run_depmod_build_initrd "$krel" initrd_needed </dev/null
 }
 
 add_kernel() {
