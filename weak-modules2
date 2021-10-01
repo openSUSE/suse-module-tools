@@ -447,11 +447,24 @@ needs_initrd() {
     return 1
 }
 
+# run depmod
+# first arg - kernel release; more args - modules to add (if any),
+# will enable depmod incremental mode
 run_depmod() {
-    local krel=$1
+    local krel=$1 inc= status=
 
-    if [ -d /lib/modules/$krel -a -f /boot/System.map-$krel ] ; then
-	doit "$DEPMOD" -F /boot/System.map-$krel -ae $krel
+    [ -d /lib/modules/$krel -a -f /boot/System.map-$krel ] || \
+	return
+
+    shift
+    if [[ $WM2_DEPMOD_INC && $# -gt 0 ]]; then
+	inc=-I
+    fi
+    doit "$DEPMOD" -F /boot/System.map-"$krel" -ae $inc "$krel" "$@"
+    status=$?
+    if [[ $status -ne 0 && $inc ]]
+       # fall back to full depmod
+       doit "$DEPMOD" -F /boot/System.map-"$krel" -ae "$krel"
     fi
 }
 
@@ -521,8 +534,11 @@ walk_kmps() {
     done
 }
 
+# first arg - kernel release
+# other args - modules to add, enables depmod incremental
 kernel_changed() {
     local krel=$1 flavor=${1##*-}
+    shift
 
     if [ ! -f /boot/System.map-$krel ]; then
 	# this kernel does not exist anymore
@@ -537,7 +553,7 @@ kernel_changed() {
 	walk_kmps "$krel"
     fi
 
-    run_depmod "$krel"
+    run_depmod "$krel" "$@"
     build_initrd "$krel" initrd_needed </dev/null
 }
 
@@ -560,9 +576,9 @@ remove_kernel() {
 
 add_kernel_modules() {
     local krel=$1
-    cat >/dev/null
 
-    kernel_changed $krel
+    sed -rn '/\.ko(|\.xz|\.gz|\.zst)/p' >$tmpdir/kernel-modules
+    kernel_changed "$krel" $(cat $tmpdir/kernel-modules)
 }
 
 remove_kernel_modules() {
@@ -570,7 +586,7 @@ remove_kernel_modules() {
     cat >/dev/null
 
     # FIXME: remove KMP symlinks that no longer work
-    kernel_changed $krel
+    kernel_changed "$krel"
 }
 
 add_kmp() {
@@ -605,12 +621,12 @@ add_kmp() {
 	    add_kmp_modules "$kmp" "$krel"
 	    if [ -z "$old_kmp" ]; then
 		log "Package $kmp added to kernel $krel"
-		run_depmod "$krel" && \
+		run_depmod "$krel" $(cat $tmpdir/modules-$kmp) && \
 		    build_initrd "$krel" <$tmpdir/basenames-$kmp || \
 			status=1
 	    else
 		log "Package $old_kmp replaced by package $kmp in kernel $krel"
-		run_depmod "$krel" && \
+		run_depmod "$krel" $(cat $tmpdir/modules-$kmp) && \
 		    cat $tmpdir/basenames-{$old_kmp,$kmp} \
 			| build_initrd "$krel" || \
 			status=1
