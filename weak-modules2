@@ -505,7 +505,7 @@ get_image_name() {
 # rebuild initrd for kernel version $krel
 # stdin - list of changed modules
 build_initrd() {
-    local krel=$1 is_kernel=$2
+    local krel=$1 is_kernel=$2 may_delay=$3
     local status=0 image
     local system_map
 
@@ -516,7 +516,7 @@ build_initrd() {
 	    [ -z "$image" ] || break
 	done
 	if [ -n "$image" ]; then
-	    if test -n "$INITRD_IN_POSTTRANS"; then
+	    if [[ "$may_delay" ]]; then
 		mkdir -p /run/regenerate-initrd
 		doit touch /run/regenerate-initrd/$krel
 	    else
@@ -569,11 +569,13 @@ walk_kmps() {
 
 # first arg - kernel release
 # 2nd arg: is this a base pkg (-> must rebuild initrd)?
+# 3rd arg: can the initrd build be delayed to %posttrans?
 # other args - modules to add, enables depmod incremental
 # stdin: list of module basenames to feed into build_initrd / needs_initrd
 kernel_changed() {
-    local krel=$1 is_basepkg=$2 flavor=${1##*-}
+    local krel=$1 is_basepkg=$2 may_delay=$3 flavor=${1##*-}
     local system_map=$(find_usrmerge_boot System.map "$krel")
+    shift
     shift
     shift
 
@@ -591,13 +593,13 @@ kernel_changed() {
     fi
 
     run_depmod "$krel" "$@"
-    build_initrd "$krel" $is_basepkg
+    build_initrd "$krel" "$is_basepkg" "$may_delay"
 }
 
 add_kernel() {
     local krel=$1
 
-    kernel_changed "$krel" initrd_needed
+    kernel_changed "$krel" initrd_needed "$INITRD_IN_POSTTRANS"
 }
 
 remove_kernel() {
@@ -613,11 +615,48 @@ remove_kernel() {
 
 add_kernel_modules() {
     local krel=$1
+    local initrd_needed=yes
 
     sed -rn '/\.ko(|\.xz|\.gz|\.zst)/p' >$tmpdir/kernel-modules
     sed 's:.*/::' <$tmpdir/kernel-modules >$tmpdir/kernel-basenames
 
-    kernel_changed "$krel" initrd_needed $(cat $tmpdir/kernel-modules) <$tmpdir/kernel-basenames
+    # If INITRD_IN_POSTTRANS isn't set, and a kernel base package
+    # is installed / updated together with subpackages, the base package
+    # is processed first. If a module from a subpackage is necessary
+    # in the initrd, it will be missing at that stage, and the initrd
+    # will be built without it. Therefore we need to force initrd rebuild
+    # in that case. If INITRD_IN_POSTTRANS is set, this won't happen, and
+    # we only need to force initrd creation if one of the modules of
+    # our subpkg are present in the initrd.
+    if [[ $INITRD_IN_POSTTRANS ]]; then
+	initrd_needed=
+    fi
+    # shellcheck disable=2046
+    kernel_changed "$krel" "$initrd_needed" "$INITRD_IN_POSTTRANS" \
+		   $(cat "$tmpdir/kernel-modules") \
+		   <"$tmpdir/kernel-basenames"
+}
+
+# for package deletion, there's no %posttrans, therefore delaying the
+# initrd rebuild is not generally possible. But if some other package
+# has scheduled a rebuild for the given kernel already, we can.
+# (this would happen on a KMP update, for example).
+may_delay_on_removal() {
+    local krel=$1 res="" image
+
+    if [[ $INITRD_IN_POSTTRANS ]]; then
+	if [[ -e /run/regenerate-initrd/all ]]; then
+	    res="1"
+	else
+	    image=$(get_image_name "$krel")
+
+	    if [[ -e /run/regenerate-initrd/$image-$krel ]]; then
+		res="1"
+	    fi
+	fi
+    fi
+    dlog "may_delay_on_removal => \"$res\""
+    echo "$res"
 }
 
 remove_kernel_modules() {
@@ -627,7 +666,8 @@ remove_kernel_modules() {
     sed 's:.*/::' <$tmpdir/kernel-modules >$tmpdir/kernel-basenames
 
     # FIXME: remove KMP symlinks that no longer work
-    kernel_changed "$krel" initrd_needed <$tmpdir/kernel-basenames
+    kernel_changed "$krel" "" "$(may_delay_on_removal "$krel")" \
+		   <$tmpdir/kernel-basenames
 }
 
 add_kmp() {
@@ -655,7 +695,8 @@ add_kmp() {
 	if kmp_is_present $kmp $krel; then
 	    log "Package $kmp does not need to be added to kernel $krel"
 	    run_depmod "$krel" && \
-		build_initrd "$krel" <$tmpdir/basenames-$kmp || \
+		build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" \
+			     <$tmpdir/basenames-$kmp || \
 		    status=1
 	    continue
 	fi
@@ -666,13 +707,14 @@ add_kmp() {
 	    if [ -z "$old_kmp" ]; then
 		log "Package $kmp added to kernel $krel"
 		run_depmod "$krel" $(cat $tmpdir/modules-$kmp) && \
-		    build_initrd "$krel" <$tmpdir/basenames-$kmp || \
+		    build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" \
+				 <$tmpdir/basenames-$kmp || \
 			status=1
 	    else
 		log "Package $old_kmp replaced by package $kmp in kernel $krel"
 		run_depmod "$krel" $(cat $tmpdir/modules-$kmp) && \
 		    cat $tmpdir/basenames-{$old_kmp,$kmp} \
-			| build_initrd "$krel" || \
+			| build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" || \
 			status=1
 	    fi
 	elif [[ $old_kmp ]]; then
@@ -736,7 +778,7 @@ remove_kmp() {
 		log "Package $kmp replaced by package $other_kmp in kernel $krel"
 		run_depmod "$krel" && \
 		    cat $tmpdir/basenames-{$kmp,$other_kmp} \
-			| build_initrd "$krel" || \
+			| build_initrd "$krel" "" "$(may_delay_on_removal "$krel")" || \
 			status=1
 	    else
 		log "Package $kmp removed from kernel $krel"
@@ -744,7 +786,8 @@ remove_kmp() {
 		    log "Weak-updates symlinks to no other $kmpshort package could be created"
 		fi
 		run_depmod "$krel" && \
-		    build_initrd "$krel" <$tmpdir/basenames-$kmp || \
+		    build_initrd "$krel" "" "$(may_delay_on_removal "$krel")" \
+				 <$tmpdir/basenames-$kmp || \
 			status=1
 	    fi
 	fi
