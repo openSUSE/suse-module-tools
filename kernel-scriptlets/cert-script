@@ -21,6 +21,14 @@ while true ; do
     shift
 done
 
+# The below statement fails if mokutil isn't installed or UEFI is unsupported.
+# It doesn't fail if UEFI is available but secure boot is off.
+if ! mokutil --sb-state 2>/dev/null; then
+    [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
+	echo "$0: system doesn't support UEFI, skipping certificate handling" >&2
+    exit 0
+fi
+
 run_mokutil () {
     [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo mokutil "$@" >&2
     mokutil "$@"
@@ -29,58 +37,51 @@ run_mokutil () {
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo "cert $op" ca-check: "$ca_check" certs: "$certs" -- "$@" >&2
 
 script_rc=0
-
 case $op in
     pre)
 	;;
     post)
-	if command -v mokutil >/dev/null; then
-	    # Only apply CA check on the kernel package certs (bsc#1173115)
-	    if [ -n "$ca_check" ] && mokutil -h | grep -q "ca-check"; then
-		MOK_ARG="--ca-check"
-	    else
-		MOK_ARG=""
+	# Only apply CA check on the kernel package certs (bsc#1173115)
+	if [ -n "$ca_check" ] && mokutil -h | grep -q "ca-check"; then
+	    MOK_ARG="--ca-check"
+	else
+	    MOK_ARG=""
+	fi
+	# XXX: Only call mokutil if UEFI and shim are used
+	for cert in $certs; do
+	    cert="/etc/uefi/certs/${cert}.crt"
+	    run_mokutil --import "$cert" --root-pw ${MOK_ARG}
+	    rc=$?
+	    if [ $rc != 0 ] ; then
+		script_rc=$rc
+		echo "Failed to import $cert" >&2
 	    fi
-	    # XXX: Only call mokutil if UEFI and shim are used
-	    for cert in $certs; do
-		cert="/etc/uefi/certs/${cert}.crt"
-		run_mokutil --import "$cert" --root-pw ${MOK_ARG}
+	done
+	;;
+    preun)
+	for cert in $certs; do
+	    cert="/etc/uefi/certs/${cert}.crt"
+	    # Here we queue the certificate for de-enrollment. If by postun
+	    # the certificate does not exist last kernel using it was
+	    # removed and we can queue it for de-enrollment with mokutil.
+	    ln "$cert" "$cert.delete" || script_rc=$?
+	done
+	;;
+    postun)
+	for cert in $certs; do
+	    cert="/etc/uefi/certs/${cert}.crt"
+	    # If the certificate is now gone there are no users left
+	    # queue -> de-enrollment
+	    if ! test -e "$cert"; then
+		run_mokutil --delete "$cert.delete" --root-pw
 		rc=$?
 		if [ $rc != 0 ] ; then
 		    script_rc=$rc
-		    echo "Failed to import $cert" >&2
+		    echo "Failed to delete $cert" >&2
 		fi
-	    done
-	fi
-	;;
-    preun)
-	if command -v mokutil >/dev/null; then
-	    for cert in $certs; do
-		cert="/etc/uefi/certs/${cert}.crt"
-		# Here we queue the certificate for de-enrollment. If by postun
-		# the certificate does not exist last kernel using it was
-		# removed and we can queue it for de-enrollment with mokutil.
-		ln "$cert" "$cert.delete" || script_rc=$?
-	    done
-	fi
-	;;
-    postun)
-	if command -v mokutil >/dev/null; then
-	    for cert in $certs; do
-		cert="/etc/uefi/certs/${cert}.crt"
-		# If the certificate is now gone there are no users left
-		# queue -> de-enrollment
-		if ! test -e "$cert"; then
-		    run_mokutil --delete "$cert.delete" --root-pw
-		    rc=$?
-		    if [ $rc != 0 ] ; then
-			script_rc=$rc
-			echo "Failed to delete $cert" >&2
-		    fi
-		fi
-		rm "$cert.delete" || script_rc=$?
-	    done
-	fi
+	    fi
+	    rm "$cert.delete" || script_rc=$?
+	done
 	;;
     posttrans)
 	;;
