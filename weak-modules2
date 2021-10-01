@@ -203,8 +203,7 @@ create_temporary_modules_dir() {
     mkdir -p $opt_v $basedir$modules_dir/weak-updates
     ln -s $opt_v $modules_dir/kernel $basedir$modules_dir/kernel
 
-    eval "$(find $modules_dir -path "$modules_dir/modules.*" -prune \
-		-o -path "$modules_dir/kernel" -prune \
+    eval "$(find $modules_dir -path "$modules_dir/kernel" -prune \
 		-o -type d -printf "mkdir -p $opt_v $basedir%p\n" \
 		-o -printf "ln -s $opt_v %p $basedir%p\n"
            )"
@@ -469,14 +468,24 @@ needs_initrd() {
     return 1
 }
 
+# run depmod
+# first arg - kernel release; more args - modules to add (if any),
+# will enable depmod incremental mode
 run_depmod() {
-    local krel=$1
+    local krel=$1 status
 
-    if [ -d /lib/modules/$krel ]; then
-	system_map=$(find_usrmerge_boot System.map "$krel")
-	if [ -n "$system_map" ]; then
-	   doit "$DEPMOD" -F "$system_map" -ae "$krel" || return 1
-	fi
+    [[ -d /lib/modules/$krel ]] || return
+    system_map=$(find_usrmerge_boot System.map "$krel")
+    [[ $system_map ]] || return
+    shift
+    status=1
+    if [[ $WM2_DEPMOD_INC && $# -gt 0 ]]; then
+	doit "$DEPMOD" -F "$system_map" -ae -I "$krel" "$@"
+	status=$?
+    fi
+    if [[ $status -ne 0 ]]; then
+       # fall back to full depmod
+       doit "$DEPMOD" -F "$system_map" -ae "$krel"
     fi
 }
 
@@ -545,9 +554,12 @@ walk_kmps() {
     done
 }
 
+# first arg - kernel release
+# other args - modules to add, enables depmod incremental
 kernel_changed() {
     local krel=$1 flavor=${1##*-}
     local system_map=$(find_usrmerge_boot System.map "$krel")
+    shift
 
     if [ -z "$system_map" ]; then
 	# this kernel does not exist anymore
@@ -562,7 +574,7 @@ kernel_changed() {
 	walk_kmps "$krel"
     fi
 
-    run_depmod "$krel"
+    run_depmod "$krel" "$@"
     build_initrd "$krel" initrd_needed </dev/null
 }
 
@@ -585,9 +597,9 @@ remove_kernel() {
 
 add_kernel_modules() {
     local krel=$1
-    cat >/dev/null
 
-    kernel_changed $krel
+    sed -rn '/\.ko(|\.xz|\.gz|\.zst)/p' >$tmpdir/kernel-modules
+    kernel_changed "$krel" $(cat $tmpdir/kernel-modules)
 }
 
 remove_kernel_modules() {
@@ -595,7 +607,7 @@ remove_kernel_modules() {
     cat >/dev/null
 
     # FIXME: remove KMP symlinks that no longer work
-    kernel_changed $krel
+    kernel_changed "$krel"
 }
 
 add_kmp() {
@@ -633,12 +645,12 @@ add_kmp() {
 	    add_kmp_modules "$kmp" "$krel"
 	    if [ -z "$old_kmp" ]; then
 		log "Package $kmp added to kernel $krel"
-		run_depmod "$krel" && \
+		run_depmod "$krel" $(cat $tmpdir/modules-$kmp) && \
 		    build_initrd "$krel" <$tmpdir/basenames-$kmp || \
 			status=1
 	    else
 		log "Package $old_kmp replaced by package $kmp in kernel $krel"
-		run_depmod "$krel" && \
+		run_depmod "$krel" $(cat $tmpdir/modules-$kmp) && \
 		    cat $tmpdir/basenames-{$old_kmp,$kmp} \
 			| build_initrd "$krel" || \
 			status=1
