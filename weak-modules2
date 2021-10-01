@@ -469,12 +469,8 @@ needs_initrd() {
     return 1
 }
 
-# run depmod and rebuild initrd for kernel version $krel
-# stdin - list of changed modules
-run_depmod_build_initrd() {
-    local krel=$1 is_kernel=$2
-    local status=0
-    local system_map
+run_depmod() {
+    local krel=$1
 
     if [ -d /lib/modules/$krel ]; then
 	system_map=$(find_usrmerge_boot System.map "$krel")
@@ -482,6 +478,15 @@ run_depmod_build_initrd() {
 	   doit "$DEPMOD" -F "$system_map" -ae "$krel" || return 1
 	fi
     fi
+}
+
+# rebuild initrd for kernel version $krel
+# stdin - list of changed modules
+build_initrd() {
+    local krel=$1 is_kernel=$2
+    local status=0
+    local system_map
+
     if needs_initrd $krel $is_kernel; then
 	local image x
 	for x in vmlinuz image vmlinux linux bzImage uImage Image zImage; do
@@ -557,7 +562,8 @@ kernel_changed() {
 	walk_kmps "$krel"
     fi
 
-    run_depmod_build_initrd "$krel" initrd_needed </dev/null
+    run_depmod "$krel"
+    build_initrd "$krel" initrd_needed </dev/null
 }
 
 add_kernel() {
@@ -616,8 +622,9 @@ add_kmp() {
 
 	if kmp_is_present $kmp $krel; then
 	    log "Package $kmp does not need to be added to kernel $krel"
-	    run_depmod_build_initrd "$krel" <$tmpdir/basenames-$kmp || \
-		status=1
+	    run_depmod "$krel" && \
+		build_initrd "$krel" <$tmpdir/basenames-$kmp || \
+		    status=1
 	    continue
 	fi
 	local old_kmp=$(previous_version_of_kmp $kmp $krel)
@@ -626,12 +633,15 @@ add_kmp() {
 	    add_kmp_modules "$kmp" "$krel"
 	    if [ -z "$old_kmp" ]; then
 		log "Package $kmp added to kernel $krel"
-		run_depmod_build_initrd "$krel" <$tmpdir/basenames-$kmp || \
-		    status=1
+		run_depmod "$krel" && \
+		    build_initrd "$krel" <$tmpdir/basenames-$kmp || \
+			status=1
 	    else
 		log "Package $old_kmp replaced by package $kmp in kernel $krel"
-		cat $tmpdir/basenames-{$old_kmp,$kmp} \
-		| run_depmod_build_initrd "$krel" || status=1
+		run_depmod "$krel" && \
+		    cat $tmpdir/basenames-{$old_kmp,$kmp} \
+			| build_initrd "$krel" || \
+			status=1
 	    fi
 	elif [[ $old_kmp ]]; then
 	    log "Package $old_kmp kept in kernel $krel (not replaced by $kmp)"
@@ -692,15 +702,18 @@ remove_kmp() {
 	    done < $tmpdir/kmps
 	    if [ -n "$other_kmp" ]; then
 		log "Package $kmp replaced by package $other_kmp in kernel $krel"
-		cat $tmpdir/basenames-{$kmp,$other_kmp} \
-		| run_depmod_build_initrd "$krel" || status=1
+		run_depmod "$krel" && \
+		    cat $tmpdir/basenames-{$kmp,$other_kmp} \
+			| build_initrd "$krel" || \
+			status=1
 	    else
 		log "Package $kmp removed from kernel $krel"
 		if [ $other_found -eq 1 ]; then
 		    log "Weak-updates symlinks to no other $kmpshort package could be created"
 		fi
-		run_depmod_build_initrd "$krel" <$tmpdir/basenames-$kmp || \
-		    status=1
+		run_depmod "$krel" && \
+		    build_initrd "$krel" <$tmpdir/basenames-$kmp || \
+			status=1
 	    fi
 	fi
     done
