@@ -153,7 +153,7 @@ __kmp_is_present() {
     local module symlink
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
-	[ $module -ef $symlink -o $module = "$(readlink $symlink)" ] || return 1
+	[[ $module -ef $symlink || $module = "$(readlink $symlink)" ]] || return 1
     done < $tmpdir/modules-$kmp
 
     return 0
@@ -268,13 +268,13 @@ has_unresolved_symbols() {
 
 # KMPs can only be added if none of the module basenames overlap
 basenames_are_unique() {
-    local kmp=$1 krel=$2 basedir=$3 dir
+    local kmp=$1 krel=$2 basedir=$3 dir overlap
 
     for dir in $basedir/lib/modules/$krel/{weak-updates,updates,extra}/; do
         if [ ! -d "$dir" ]; then
             continue
         fi
-	local overlap="$(comm -1 -2 $tmpdir/basenames-$kmp \
+	overlap="$(comm -1 -2 $tmpdir/basenames-$kmp \
                <(find "$dir" -not -type d -printf '%f\n' | sort -u))"
         if [ -n "$overlap" ]; then
 	    dlog "basenames_are_unique: found name overlap for $kmp in $dir: " $overlap
@@ -291,7 +291,6 @@ __can_replace_kmp() {
     local old_kmp=$1 new_kmp=$2 krel=$3
 
     local basedir=$tmpdir/$krel
-    local weak_updates=/lib/modules/$krel/weak-updates/
 
     [ -d "$basedir" ] || \
 	create_temporary_modules_dir "$krel" "$basedir"
@@ -323,8 +322,9 @@ check_kmp() {
     local kmp=$1
 
     # Make sure all modules are for the same kernel
+    # shellcheck disable=2046
     set -- $(sed -re 's:^/lib/modules/([^/]+)/.*:\1:' \
-		 $tmpdir/modules-$kmp \
+		 "$tmpdir/modules-$kmp" \
 	     | sort -u)
     if [ $# -ne 1 ]; then
 	echo "Error: package $kmp seems to contain modules for multiple" \
@@ -343,6 +343,7 @@ check_kmp() {
     fi
     sed -e 's:.*/::' $tmpdir/modules-$kmp \
 	| sort -u > $tmpdir/basenames-$kmp
+    # shellcheck disable=2046
     dlog "check_kmp: $kmp contains: " $(cat $tmpdir/basenames-$kmp)
 }
 
@@ -376,6 +377,7 @@ find_kmps() {
     | /usr/lib/rpm/rpmsort -r \
     > $tmpdir/kmps
 
+    # shellcheck disable=2046
     dlog "find_kmps: kmps found: " $(cat $tmpdir/kmps)
 }
 
@@ -401,8 +403,10 @@ __previous_version_of_kmp() {
 }
 
 previous_version_of_kmp() {
-    local old="$(__previous_version_of_kmp "$1" "$2")"
-    local res=$?
+    local old res
+
+    old="$(__previous_version_of_kmp "$1" "$2")"
+    res=$?
     dlog "previous_version_of_kmp: kmp=$1 krel=$2 => $old"
     echo "$old"
     return $res
@@ -432,7 +436,7 @@ needs_initrd() {
         return 1
     fi
 
-    if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
+    if ! [[ -f /etc/fstab && ! -e /.buildenv && -x "$DRACUT" ]] ; then
 	echo "Please run \"$DRACUT -f /boot/initrd-$krel $krel\" as soon as your system is complete." >&2
 	return 1
     fi
@@ -531,12 +535,12 @@ build_initrd() {
 }
 
 walk_kmps() {
-    local krel=$1
-    local kmps=( $(cat $tmpdir/kmps) )
+    local krel=$1 kmp
 
+    mapfile -t kmps < "$tmpdir/kmps"
     while :; do
 	[ ${#kmps[@]} -gt 0 ] || break
-	local added='' skipped='' n kmp
+	local added='' skipped='' n kmp old_kmp
 	for ((n=0; n<${#kmps[@]}; n++)); do
 	    kmp=${kmps[n]}
 	    [ -n "$kmp" ] || continue
@@ -547,7 +551,7 @@ walk_kmps() {
 		kmps[n]=''
 		continue
 	    fi
-	    local old_kmp=$(previous_version_of_kmp $kmp $krel)
+	    old_kmp=$(previous_version_of_kmp $kmp $krel)
 	    if can_replace_kmp "$old_kmp" $kmp $krel; then
 		remove_kmp_modules "$old_kmp" "$krel"
 		add_kmp_modules "$kmp" "$krel"
@@ -563,7 +567,7 @@ walk_kmps() {
 	    dlog "walk_kmps: skipped $kmp"
 	    skipped=1
 	done
-	[ -n "$added" -a -n "$skipped" ] || break
+	[[ -n "$added" && -n "$skipped" ]] || break
     done
 }
 
@@ -673,12 +677,11 @@ remove_kernel_modules() {
 add_kmp() {
     local kmp=$1 kmpshort=${1%-*-*}
     local basename=${kmpshort%-kmp-*} flavor=${kmpshort##*-}
-    local system_map
+    local system_map dir krel status old_kmp
 
     # Find the kmp to be added as well as any previous versions
     find_kmps "$basename" "$flavor" || return 1
 
-    local dir krel status
     for dir in /lib/modules/*; do
 	krel=${dir#/lib/modules/}
         case "$krel" in
@@ -696,24 +699,26 @@ add_kmp() {
 	    log "Package $kmp does not need to be added to kernel $krel"
 	    run_depmod "$krel" && \
 		build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" \
-			     <$tmpdir/basenames-$kmp || \
+			     <"$tmpdir/basenames-$kmp" || \
 		    status=1
 	    continue
 	fi
-	local old_kmp=$(previous_version_of_kmp $kmp $krel)
-	if can_replace_kmp "$old_kmp" $kmp $krel; then
+	old_kmp=$(previous_version_of_kmp "$kmp" "$krel")
+	if can_replace_kmp "$old_kmp" "$kmp" "$krel"; then
 	    remove_kmp_modules "$old_kmp" "$krel"
 	    add_kmp_modules "$kmp" "$krel"
 	    if [ -z "$old_kmp" ]; then
 		log "Package $kmp added to kernel $krel"
-		run_depmod "$krel" $(cat $tmpdir/modules-$kmp) && \
+		# shellcheck disable=2046
+		run_depmod "$krel" $(cat "$tmpdir/modules-$kmp") && \
 		    build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" \
-				 <$tmpdir/basenames-$kmp || \
+				 <"$tmpdir/basenames-$kmp" || \
 			status=1
 	    else
 		log "Package $old_kmp replaced by package $kmp in kernel $krel"
-		run_depmod "$krel" $(cat $tmpdir/modules-$kmp) && \
-		    cat $tmpdir/basenames-{$old_kmp,$kmp} \
+		# shellcheck disable=2046
+		run_depmod "$krel" $(cat "$tmpdir/modules-$kmp") && \
+		    cat "$tmpdir/basenames-{$old_kmp,$kmp}" \
 			| build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" || \
 			status=1
 	    fi
@@ -915,7 +920,7 @@ case "$mode" in
     if [ $# -gt 1 ]; then
         err="Too many arguments to $mode"
     fi
-    [ $# -eq 1 ] || set -- $(uname -r)
+    [ $# -eq 1 ] || set -- "$(uname -r)"
     ;;
 *)
     if [ $# -ne 1 ]; then
@@ -944,8 +949,8 @@ fi
 find_depmod
 find_lsinitrd
 
-tmpdir=$(mktemp -d /var/tmp/${0##*/}.XXXXXX)
-trap "rm -rf $tmpdir" EXIT
+tmpdir="$(mktemp -d /var/tmp/${0##*/}.XXXXXX)"
+trap 'rm -rf "$tmpdir"' EXIT
 
 shopt -s nullglob
 
