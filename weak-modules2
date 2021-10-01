@@ -470,6 +470,17 @@ run_depmod() {
     fi
 }
 
+get_image_name() {
+    local krel=$1 x
+
+    for x in vmlinuz image vmlinux linux bzImage uImage Image zImage; do
+	if [ -f /boot/"$x-$krel" ]; then
+	    echo "$x"
+	    return
+	fi
+    done
+}
+
 # rebuild initrd for kernel version $krel
 # stdin - list of changed modules
 build_initrd() {
@@ -477,13 +488,8 @@ build_initrd() {
     local status=0
 
     if needs_initrd $krel $is_kernel; then
-	local image
-	for x in vmlinuz image vmlinux linux bzImage uImage Image zImage; do
-	    if [ -f /boot/$x-$krel ]; then
-		image=$x
-		break
-	    fi
-	done
+	local image=$(get_image_name "$krel")
+
 	if [ -n "$image" ]; then
 	    if test -n "$INITRD_IN_POSTTRANS"; then
 		mkdir -p /run/regenerate-initrd
