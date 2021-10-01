@@ -419,7 +419,9 @@ get_initrd_basenames() {
 }
 
 # test if rebuilding initrd is needed for $krel.
-# stdin - list of changed modules
+# arg 1: kernel version
+# arg 2: if non-empty, assume kernel package (must rebuild)
+# stdin - list of changed modules (if arg 2 is empty)
 needs_initrd() {
     local krel=$1 is_kernel=$2 changed_basenames=() initrd_basenames=() match=()
 
@@ -555,10 +557,13 @@ walk_kmps() {
 }
 
 # first arg - kernel release
+# 2nd arg: is this a base pkg (-> must rebuild initrd)?
 # other args - modules to add, enables depmod incremental
+# stdin: list of module basenames to feed into build_initrd / needs_initrd
 kernel_changed() {
-    local krel=$1 flavor=${1##*-}
+    local krel=$1 is_basepkg=$2 flavor=${1##*-}
     local system_map=$(find_usrmerge_boot System.map "$krel")
+    shift
     shift
 
     if [ -z "$system_map" ]; then
@@ -575,13 +580,13 @@ kernel_changed() {
     fi
 
     run_depmod "$krel" "$@"
-    build_initrd "$krel" initrd_needed </dev/null
+    build_initrd "$krel" $is_basepkg
 }
 
 add_kernel() {
     local krel=$1
 
-    kernel_changed $krel
+    kernel_changed "$krel" initrd_needed
 }
 
 remove_kernel() {
@@ -599,15 +604,19 @@ add_kernel_modules() {
     local krel=$1
 
     sed -rn '/\.ko(|\.xz|\.gz|\.zst)/p' >$tmpdir/kernel-modules
-    kernel_changed "$krel" $(cat $tmpdir/kernel-modules)
+    sed 's:.*/::' <$tmpdir/kernel-modules >$tmpdir/kernel-basenames
+
+    kernel_changed "$krel" initrd_needed $(cat $tmpdir/kernel-modules) <$tmpdir/kernel-basenames
 }
 
 remove_kernel_modules() {
     local krel=$1
-    cat >/dev/null
+
+    sed -rn '/\.ko(|\.xz|\.gz|\.zst)/p' >$tmpdir/kernel-modules
+    sed 's:.*/::' <$tmpdir/kernel-modules >$tmpdir/kernel-basenames
 
     # FIXME: remove KMP symlinks that no longer work
-    kernel_changed "$krel"
+    kernel_changed "$krel" initrd_needed <$tmpdir/kernel-basenames
 }
 
 add_kmp() {
