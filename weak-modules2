@@ -666,12 +666,21 @@ may_delay_on_removal() {
 remove_kernel_modules() {
     local krel=$1
 
-    sed -rn '/\.ko(|\.xz|\.gz|\.zst)/p' >$tmpdir/kernel-modules
-    sed 's:.*/::' <$tmpdir/kernel-modules >$tmpdir/kernel-basenames
-
-    # FIXME: remove KMP symlinks that no longer work
-    kernel_changed "$krel" "" "$(may_delay_on_removal "$krel")" \
-		   <$tmpdir/kernel-basenames
+    # We are removing modules here which might be in the initrd.
+    # We can derive kernel-modules and kernel-basenames like we
+    # do in add_kmp_modules. Why don't we do it?
+    # The common case by far is that kernel subpackages are removed
+    # or updated together with the base package. In that case, rebuilding
+    # the initrd in %postun of the subpackage is just a waste, as the
+    # kernel will be uninstalled anyway.
+    #
+    # In %postun we can't figure out whether or not the base package
+    # will also be uninstalled. If it's not, in the worst case, some modules
+    # will be kept in initramfs that are no longer installed on the system
+    # itself. That shouldn't hurt. By not rebuilding the initrd here,
+    # we speed up the common case.
+    cat >/dev/null
+    kernel_changed "$krel" "" "" </dev/null
 }
 
 add_kmp() {
