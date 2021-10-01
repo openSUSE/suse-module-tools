@@ -491,11 +491,22 @@ run_depmod() {
     fi
 }
 
+get_image_name() {
+    local krel=$1 x
+
+    for x in vmlinuz image vmlinux linux bzImage uImage Image zImage; do
+	if [ -f /boot/"$x-$krel" ]; then
+	    echo "$x"
+	    return
+	fi
+    done
+}
+
 # rebuild initrd for kernel version $krel
 # stdin - list of changed modules
 build_initrd() {
     local krel=$1 is_kernel=$2
-    local status=0
+    local status=0 image
     local system_map
 
     if needs_initrd $krel $is_kernel; then
