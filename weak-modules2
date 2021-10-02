@@ -718,6 +718,25 @@ add_kmp() {
 	system_map=$(find_usrmerge_boot System.map "$krel")
 	[ -n "$system_map" ] || continue
 
+	# The following call to has_unresolved_symbols() would just produce
+	# a warning, in a case that shouldn't occur in a properly configured
+	# system anyway. It could be skipped with no significant feature loss.
+	# But there's a strange performance phenomenon: has_unresolved_symbols()
+	# (i.e. a full depmod run) normally takes ~10s if the module files
+	# aren't in the page cache. Follow-up depmod calls take ~2s only for
+	# zstd-compressed modules. If we skip the call below,
+	# has_unresolved_symbols() will be called later on a temporary copy of
+	# /lib/modules/$krel, where almost all files and directories are
+	# symlinks into the "real" /lib/modules/$krel (see create_temporary_modules_dir()
+	# above). In my tests, the depmod call on the temporary directory
+	# consistently took 30s! The bottom line is that doing this extra
+	# depmod call speeds up the execution of weak_modules2, although it
+	# needs 10 extra seconds in the first place.  If $WM2_DEPMOD_INC is
+	# set, this call has no effect; skip it.
+	if [[ ! $WM2_DEPMOD_INC ]] && opt_debug=1 has_unresolved_symbols "$krel" "/"; then
+	    echo "Warning: /lib/modules/$krel is inconsistent" >&2
+	    echo "Warning: weak-updates symlinks might not be created" >&2
+	fi
 	if kmp_is_present $kmp $krel; then
 	    log "Package $kmp does not need to be added to kernel $krel"
 	    run_depmod "$krel" && \
@@ -749,10 +768,6 @@ add_kmp() {
 	    log "Package $old_kmp kept in kernel $krel (not replaced by $kmp)"
 	else
 	    echo "FAILED to add $kmp in kernel $krel" >&2
-	    if [[ $opt_debug -gt 0 ]] && \
-		   has_unresolved_symbols "$krel" "/"; then
-		echo "Warning: /lib/modules/$krel is inconsistent" >&2
-	    fi
 	fi
     done
     dlog "add_kmp: status=$status"
