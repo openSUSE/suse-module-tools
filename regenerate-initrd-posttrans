@@ -36,17 +36,57 @@ for f in "$dir"/*; do
 	break
 done
 
+tmpdir=$(mktemp -d /var/tmp/r-i-p-XXXXXX)
+[ -n "$tmpdir" ] && [ -d "$tmpdir" ] || {
+    echo "error: failed to create temporary directory" >&2
+    exit 1
+}
+trap 'rm -rf "$tmpdir"' 0
+
+start_dracut() {
+    local kver=$1 x pid
+    if [ x"$RIP_PARALLEL" != x1 ]; then
+	if ! "$DRACUT" -f "/boot/initrd-$kver" "$kver"; then
+	    err=$?
+	fi
+    else
+	"$DRACUT" -f "/boot/initrd-$kver" "$kver" >"$tmpdir/dracut-$kver.log" 2>&1 &
+	pid=$!
+	echo "$DRACUT started for $kver with pid $pid" >&2
+	ln -s dracut-$kver.log "$tmpdir/$pid.log"
+	PIDS="$PIDS $pid"
+    fi
+}
+
+wait_for_dracut() {
+    local pid err=$1
+
+    for pid in $PIDS; do
+	wait $pid
+	if [ $? -ne 0 ]; then
+	    err=$?
+	    echo "$DRACUT($pid) failed" >&2
+	else
+	    echo "$DRACUT($pid) successful" >&2
+	fi
+	[[ ! -f "$tmpdir/$pid.log" ]] || cat "$tmpdir/$pid.log"
+    done
+    return $err
+}
+
 err=0
+PIDS=""
+
 if test -e "$dir/all"; then
     rm "$dir"/*
+    PIDS=""
     for f in /lib/modules/*; do
 	[ -f "$f/modules.dep" ] || [ -f "$f/modules.dep.bin" ] || continue
 	kver=${f##*/}
-	if ! "$DRACUT" -f "/boot/initrd-$kver" "$kver"; then
-		err=$?
-	fi
+	start_dracut "$kver"
     done
-    exit $err
+    wait_for_dracut "$err"
+    exit $?
 fi
 
 for f in "$dir"/*; do
@@ -60,8 +100,7 @@ for f in "$dir"/*; do
 	    echo $0: skippping invalid kernel version "$dir/$kver"
 	    continue
 	}
-	if ! "$DRACUT" -f --kver "$kver"; then
-		err=$?
-	fi
+	start_dracut "$kver"
 done
-exit $err
+wait_for_dracut "$err"
+exit $?
