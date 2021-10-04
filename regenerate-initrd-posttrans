@@ -36,12 +36,19 @@ for f in "$dir"/*; do
 	break
 done
 
-if test -e "$dir/all"; then
-	rm "$dir"/*
-	"$DRACUT" -f --regenerate-all
-	exit
-fi
 err=0
+if test -e "$dir/all"; then
+    rm "$dir"/*
+    for f in /lib/modules/*; do
+	[ -f "$f/modules.dep" ] || [ -f "$f/modules.dep.bin" ] || continue
+	kver=${f##*/}
+	if ! "$DRACUT" -f "/boot/initrd-$kver" "$kver"; then
+		err=$?
+	fi
+    done
+    exit $err
+fi
+
 for f in "$dir"/*; do
 	case $f in
 	    "$dir/*")
