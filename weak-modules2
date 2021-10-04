@@ -697,10 +697,72 @@ remove_kernel_modules() {
     kernel_changed "$krel" "" "" </dev/null
 }
 
+add_kmp_for_krel() {
+    local kmp=$1 krel=$2
+    local dir krel status=0 old_kmp syml=()
+
+    dlog "add_kmp: processing $kmp for $krel"
+
+    # The following call to has_unresolved_symbols() would just produce
+    # a warning, in a case that shouldn't occur in a properly configured
+    # system anyway. It could be skipped with no significant feature loss.
+    # But there's a strange performance phenomenon: has_unresolved_symbols()
+    # (i.e. a full depmod run) normally takes ~10s if the module files
+    # aren't in the page cache. Follow-up depmod calls take ~2s only for
+    # zstd-compressed modules. If we skip the call below,
+    # has_unresolved_symbols() will be called later on a temporary copy of
+    # /lib/modules/$krel, where almost all files and directories are
+    # symlinks into the "real" /lib/modules/$krel (see create_temporary_modules_dir()
+    # above). In my tests, the depmod call on the temporary directory
+    # consistently took 30s! The bottom line is that doing this extra
+    # depmod call speeds up the execution of weak_modules2, although it
+    # needs 10 extra seconds in the first place.  If $WM2_DEPMOD_INC is
+    # set, this call has no effect; skip it.
+    if [[ ! $WM2_DEPMOD_INC ]] && opt_debug=1 has_unresolved_symbols "$krel" "/"; then
+	echo "Warning: /lib/modules/$krel is inconsistent" >&2
+	echo "Warning: weak-updates symlinks might not be created" >&2
+    fi
+
+    if kmp_is_present "$kmp" "$krel"; then
+	log "Package $kmp does not need to be added to kernel $krel"
+	run_depmod "$krel" && \
+	    build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" \
+			 <"$tmpdir/basenames-$kmp" || \
+		status=1
+	return "$status"
+    fi
+
+    old_kmp=$(previous_version_of_kmp "$kmp" "$krel")
+    make_module_symlinks "$krel" / "$kmp" syml
+
+    if can_replace_kmp "$old_kmp" "$kmp" "$krel"; then
+	remove_kmp_modules "$old_kmp" "$krel"
+	add_kmp_modules "$kmp" "$krel"
+	if [ -z "$old_kmp" ]; then
+	    log "Package $kmp added to kernel $krel"
+	    run_depmod "$krel" "${syml[@]}" && \
+		build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" \
+			     <"$tmpdir/basenames-$kmp" || \
+		    status=1
+	else
+	    log "Package $old_kmp replaced by package $kmp in kernel $krel"
+	    run_depmod "$krel" "${syml[@]}" && \
+		cat "$tmpdir/basenames-{$old_kmp,$kmp}" \
+		    | build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" || \
+		    status=1
+	fi
+    elif [[ $old_kmp ]]; then
+	log "Package $old_kmp kept in kernel $krel (not replaced by $kmp)"
+    else
+	echo "FAILED to add $kmp in kernel $krel" >&2
+    fi
+    return "$status"
+}
+
 add_kmp() {
     local kmp=$1 kmpshort=${1%-*-*}
     local basename=${kmpshort%-kmp-*} flavor=${kmpshort##*-}
-    local system_map dir krel status old_kmp syml=()
+    local system_map PIDS=() pid status=0
 
     # Find the kmp to be added as well as any previous versions
     find_kmps "$basename" "$flavor" || return 1
@@ -713,70 +775,68 @@ add_kmp() {
         *)
             continue
         esac
-	dlog "add_kmp: processing $kmp for $krel"
-	[ -d $dir ] || continue
+	[[ -d "$dir" ]] || continue
 	system_map=$(find_usrmerge_boot System.map "$krel")
-	[ -n "$system_map" ] || continue
-
-	# The following call to has_unresolved_symbols() would just produce
-	# a warning, in a case that shouldn't occur in a properly configured
-	# system anyway. It could be skipped with no significant feature loss.
-	# But there's a strange performance phenomenon: has_unresolved_symbols()
-	# (i.e. a full depmod run) normally takes ~10s if the module files
-	# aren't in the page cache. Follow-up depmod calls take ~2s only for
-	# zstd-compressed modules. If we skip the call below,
-	# has_unresolved_symbols() will be called later on a temporary copy of
-	# /lib/modules/$krel, where almost all files and directories are
-	# symlinks into the "real" /lib/modules/$krel (see create_temporary_modules_dir()
-	# above). In my tests, the depmod call on the temporary directory
-	# consistently took 30s! The bottom line is that doing this extra
-	# depmod call speeds up the execution of weak_modules2, although it
-	# needs 10 extra seconds in the first place.  If $WM2_DEPMOD_INC is
-	# set, this call has no effect; skip it.
-	if [[ ! $WM2_DEPMOD_INC ]] && opt_debug=1 has_unresolved_symbols "$krel" "/"; then
-	    echo "Warning: /lib/modules/$krel is inconsistent" >&2
-	    echo "Warning: weak-updates symlinks might not be created" >&2
-	fi
-	if kmp_is_present $kmp $krel; then
-	    log "Package $kmp does not need to be added to kernel $krel"
-	    run_depmod "$krel" && \
-		build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" \
-			     <"$tmpdir/basenames-$kmp" || \
-		    status=1
-	    continue
-	fi
-	old_kmp=$(previous_version_of_kmp "$kmp" "$krel")
-	make_module_symlinks "$krel" / "$kmp" syml
-
-	if can_replace_kmp "$old_kmp" "$kmp" "$krel"; then
-	    remove_kmp_modules "$old_kmp" "$krel"
-	    add_kmp_modules "$kmp" "$krel"
-	    if [ -z "$old_kmp" ]; then
-		log "Package $kmp added to kernel $krel"
-		run_depmod "$krel" "${syml[@]}" && \
-		    build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" \
-				 <"$tmpdir/basenames-$kmp" || \
-			status=1
-	    else
-		log "Package $old_kmp replaced by package $kmp in kernel $krel"
-		run_depmod "$krel" "${syml[@]}" && \
-		    cat "$tmpdir/basenames-{$old_kmp,$kmp}" \
-			| build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" || \
-			status=1
-	    fi
-	elif [[ $old_kmp ]]; then
-	    log "Package $old_kmp kept in kernel $krel (not replaced by $kmp)"
+	[[ $system_map ]] || continue
+	if [[ $WM2_PARALLEL ]]; then
+	    add_kmp_for_krel "$kmp" "$krel" &
+	    PIDS=("${PIDS[@]}" "$!")
 	else
-	    echo "FAILED to add $kmp in kernel $krel" >&2
+	    add_kmp_for_krel "$kmp" "$krel" || status=1
 	fi
     done
+    for pid in "${PIDS[@]}"; do
+	wait "$pid" || status=1
+    done
     dlog "add_kmp: status=$status"
-    return $status
+    return "$status"
+}
+
+remove_kmp_from_krel() {
+    local kmp=$1 krel=$2 status=0
+
+    dlog "remove_kmp: processing $kmp for $krel"
+    if kmp_is_present "$kmp" "$krel"; then
+	local other_found=0 other_kmp
+
+        if [ "$krel" != "$(cat $tmpdir/krel-$kmp)" ]; then
+            remove_kmp_modules "$kmp" "$krel"
+        fi
+
+	while read other_kmp; do
+	    [ "$kmp" != "$other_kmp" ] || continue
+
+	    other_found=1
+	    dlog "remove_kmp: checking other KMP $other_kmp"
+	    if can_replace_kmp "" "$other_kmp" "$krel"; then
+		add_kmp_modules "$other_kmp" "$krel"
+		break
+	    fi
+	done < $tmpdir/kmps
+	if [ -n "$other_kmp" ]; then
+	    log "Package $kmp replaced by package $other_kmp in kernel $krel"
+	    run_depmod "$krel" && \
+		cat $tmpdir/basenames-{$kmp,$other_kmp} \
+		    | build_initrd "$krel" "" "$(may_delay_on_removal "$krel")" || \
+		    status=1
+	else
+	    log "Package $kmp removed from kernel $krel"
+	    if [ $other_found -eq 1 ]; then
+		log "Weak-updates symlinks to no other $kmpshort package could be created"
+	    fi
+	    run_depmod "$krel" && \
+		build_initrd "$krel" "" "$(may_delay_on_removal "$krel")" \
+			     <$tmpdir/basenames-$kmp || \
+		    status=1
+	fi
+    fi
+    return "$status"
 }
 
 remove_kmp() {
     local kmp=$1 kmpshort=${1%-*-*}
     local basename=${kmpshort%-kmp-*} flavor=${kmpshort##*-}
+    local system_map PIDS=() pid
 
     # Find any previous versions of the same kmp
     find_kmps "$basename" "$flavor" || return 1
@@ -795,45 +855,18 @@ remove_kmp() {
         *)
             continue
         esac
-	[ -d $dir ] || continue
+	[[ -d "$dir" ]] || continue
 	system_map=$(find_usrmerge_boot System.map "$krel")
-	[ -n "$system_map" ] || continue
-	dlog "remove_kmp: processing $kmp for $krel"
-	if kmp_is_present $kmp $krel; then
-	    local other_found=0
-
-            if [ $krel != "$(cat $tmpdir/krel-$kmp)" ]; then
-                remove_kmp_modules "$kmp" "$krel"
-            fi
-
-	    local other_kmp
-	    while read other_kmp; do
-		[ "$kmp" != "$other_kmp" ] || continue
-
-		other_found=1
-		dlog "remove_kmp: checking other KMP $other_kmp"
-		if can_replace_kmp "" "$other_kmp" "$krel"; then
-		    add_kmp_modules "$other_kmp" "$krel"
-		    break
-		fi
-	    done < $tmpdir/kmps
-	    if [ -n "$other_kmp" ]; then
-		log "Package $kmp replaced by package $other_kmp in kernel $krel"
-		run_depmod "$krel" && \
-		    cat $tmpdir/basenames-{$kmp,$other_kmp} \
-			| build_initrd "$krel" "" "$(may_delay_on_removal "$krel")" || \
-			status=1
-	    else
-		log "Package $kmp removed from kernel $krel"
-		if [ $other_found -eq 1 ]; then
-		    log "Weak-updates symlinks to no other $kmpshort package could be created"
-		fi
-		run_depmod "$krel" && \
-		    build_initrd "$krel" "" "$(may_delay_on_removal "$krel")" \
-				 <$tmpdir/basenames-$kmp || \
-			status=1
-	    fi
+	[[ $system_map ]] || continue
+	if [[ $WM2_PARALLEL ]]; then
+	    remove_kmp_from_krel "$kmp" "$krel" &
+	    PIDS=("${PIDS[@]}" "$!")
+	else
+	    remove_kmp_from_krel "$kmp" "$krel" || status=1
 	fi
+    done
+    for pid in "${PIDS[@]}"; do
+	wait "$pid" || status=1
     done
     dlog "remove_kmp: status=$status"
     return $status
