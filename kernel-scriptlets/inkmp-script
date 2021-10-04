@@ -94,18 +94,21 @@ case $op in
 	rpm -ql "$nvr" | sed -n '/\.ko\(\.xz\|\.gz\|\.zst\)\?$/p' > "/var/run/rpm-$nvr-modules" || script_rc=$?
 	;;
     postun)
-	if [ -e "$system_map" ]; then
-	    # the same package was reinstalled or just rebuilt, otherwise the files
-	    # would have been deleted by now
-	    # do not remove anything in this case (bnc#533766)
-	    rm -f "/var/run/rpm-$nvr-modules"
-	    exit 0
-	fi
-
-	modules=( $(cat "/var/run/rpm-$nvr-modules") )
+	mapfile -t modules < "/var/run/rpm-$nvr-modules"
 	rm -f "/var/run/rpm-$nvr-modules"
-	if [ ${#modules[*]} = 0 ]; then
-	    echo "WARNING: $nvr does not contain any kernel modules" >&2
+
+	# Only pass modules to weak-modules2 which have actually been removed.
+	# Modules can still exist e.g. if a kernel subpackage is updated and
+	# only the build number changed (kernel release remained the same);
+	# in this case the resulting list of modules will actually be empty.
+	# This is similar to the check for $system_map in rpm-script.
+	for __i in "${!modules[@]}"; do
+	    if [[ -e "${modules[$__i]}" ]]; then
+		unset -v modules["$__i"]
+	    fi
+	done
+	if [[ "${#modules[@]}" == 0 ]]; then
+	    echo "$nvr: no kernel modules removed" >&2
 	    exit 0
 	fi
 	if [ -x "$wm2" ]; then
