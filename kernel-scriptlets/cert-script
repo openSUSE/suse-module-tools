@@ -77,7 +77,10 @@ case $op in
 	    # Here we queue the certificate for de-enrollment. If by postun
 	    # the certificate does not exist last kernel using it was
 	    # removed and we can queue it for de-enrollment with mokutil.
-	    ln "$cert" "$cert.delete" || script_rc=$?
+	    # The .delete file must exist after package is removed so we cannot
+	    # add it to the rpm filelist to be removed by rpm. And if script is
+	    # interrupted it may remain. Do not fail when it exists (bsc#1191804).
+	    ln -f "$cert" "$cert.delete" ||:
 	done
 	;;
     postun)
