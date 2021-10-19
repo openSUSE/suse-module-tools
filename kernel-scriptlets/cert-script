@@ -21,9 +21,19 @@ while true ; do
     shift
 done
 
+is_efi () {
+    local msg rc=0
+
 # The below statement fails if mokutil isn't installed or UEFI is unsupported.
 # It doesn't fail if UEFI is available but secure boot is off.
-if ! mokutil --sb-state 2>/dev/null; then
+    msg="$(mokutil --sb-state 2>&1)" || rc=$?
+
+    [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo "$msg"
+
+    return $rc
+}
+
+if ! is_efi; then
     [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
 	echo "$0: system doesn't support UEFI, skipping certificate handling" >&2
     exit 0
