@@ -28,7 +28,7 @@
 %endif
 
 Name:           suse-module-tools
-Version:        15.3.12
+Version:        15.3.13
 Release:        0
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
