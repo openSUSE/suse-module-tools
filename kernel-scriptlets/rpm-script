@@ -179,7 +179,9 @@ EOF
     post)
 	# Flag to trigger /etc/init.d/purge-kernels on next reboot (fate#312018)
 	# ... but avoid the first installion (bsc#1180058)
-	[ "$1" -gt 1 ] && (trigger_purge_kernels || script_rc=$?)
+	if [ "$1" -gt 1 ]; then
+	    trigger_purge_kernels || script_rc=$?
+	fi
 
 	for x in /boot/"$image" /boot/initrd; do
 	    rm -f $x
