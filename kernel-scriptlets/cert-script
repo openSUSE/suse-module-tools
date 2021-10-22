@@ -21,9 +21,19 @@ while true ; do
     shift
 done
 
+is_efi () {
+    local msg rc=0
+
 # The below statement fails if mokutil isn't installed or UEFI is unsupported.
 # It doesn't fail if UEFI is available but secure boot is off.
-if ! mokutil --sb-state 2>/dev/null; then
+    msg="$(mokutil --sb-state 2>&1)" || rc=$?
+
+    [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo "$msg"
+
+    return $rc
+}
+
+if ! is_efi; then
     [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
 	echo "$0: system doesn't support UEFI, skipping certificate handling" >&2
     exit 0
@@ -41,16 +51,19 @@ case $op in
     pre)
 	;;
     post)
+	MOK_ARGS=""
 	# Only apply CA check on the kernel package certs (bsc#1173115)
 	if [ -n "$ca_check" ] && mokutil -h | grep -q "ca-check"; then
-	    MOK_ARG="--ca-check"
-	else
-	    MOK_ARG=""
+	    MOK_ARGS="${MOK_ARGS} --ca-check"
+	fi
+	# Kernel key needs to be enrolled even if it's in the kernel keyring (bsc#1191480)
+	if [ -n "$ca_check" ] && mokutil -h | grep -q "ignore-keyring"; then
+	    MOK_ARGS="${MOK_ARGS} --ignore-keyring"
 	fi
 	# XXX: Only call mokutil if UEFI and shim are used
 	for cert in $certs; do
 	    cert="/etc/uefi/certs/${cert}.crt"
-	    run_mokutil --import "$cert" --root-pw ${MOK_ARG}
+	    run_mokutil --import "$cert" --root-pw ${MOK_ARGS}
 	    rc=$?
 	    if [ $rc != 0 ] ; then
 		script_rc=$rc
@@ -64,7 +77,10 @@ case $op in
 	    # Here we queue the certificate for de-enrollment. If by postun
 	    # the certificate does not exist last kernel using it was
 	    # removed and we can queue it for de-enrollment with mokutil.
-	    ln "$cert" "$cert.delete" || script_rc=$?
+	    # The .delete file must exist after package is removed so we cannot
+	    # add it to the rpm filelist to be removed by rpm. And if script is
+	    # interrupted it may remain. Do not fail when it exists (bsc#1191804).
+	    ln -f "$cert" "$cert.delete" ||:
 	done
 	;;
     postun)
