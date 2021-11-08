@@ -1,4 +1,5 @@
 # Set optimal IO schedulers for HDD and SSD
+# Copyright (c) 2021 SUSE LLC
 
 # ## DO NOT EDIT. ##
 # To modify the rules, copy this file to /etc/udev/rules.d/60-io-scheduler.rules
@@ -6,22 +7,27 @@
 # Please read the section "Tuning I/O performance" in the System Analysis and Tuning Guide
 # from the SUSE Documentation.
 
+# --- DO NOT EDIT THIS PART ----
 SUBSYSTEM!="block", GOTO="scheduler_end"
+ACTION!="add|change", GOTO="scheduler_end"
+ENV{DEVTYPE}!="disk", GOTO="scheduler_end"
+
 # For dm devices, the relevant events are "change" events, see 10-dm.rules
-ACTION!="add", KERNEL!="dm-*", GOTO="scheduler_end"
 ACTION!="change", KERNEL=="dm-*", GOTO="scheduler_end"
 # "none" with no brackets means scheduler isn't configurable
 ATTR{queue/scheduler}=="none", GOTO="scheduler_end"
 # keep our hands off zoned devices, the kernel auto-configures them
 ATTR{queue/zoned}!="none", GOTO="scheduler_end"
+# Enforce "none" for multipath components.
+ENV{DM_MULTIPATH_DEVICE_PATH}=="1", ATTR{queue/scheduler}="none", GOTO="scheduler_end"
 
 # --- EDIT BELOW HERE after copying to /etc/udev/rules.d ---
 
-# 1. BFQ scheduler for single-queue HDD (uncomment if you comment out rule 2.+4.)
-# ATTR{queue/rotational}!="0", TEST!="%S%p/mq/1", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
+# 1. BFQ scheduler for single-queue HDD
+ATTR{queue/rotational}!="0", TEST!="%S%p/mq/1", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
 
-# 2. BFQ scheduler for every HDD (comment out if you uncomment rule 4.)
-ATTR{queue/rotational}!="0", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
+# 2. BFQ scheduler for every HDD, including "real" multiqueue
+# ATTR{queue/rotational}!="0", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
 
 # 3. For "real" multiqueue devices, the kernel defaults to no IO scheduling
 # Uncomment this (and select your scheduler) if you need an IO scheduler for them
