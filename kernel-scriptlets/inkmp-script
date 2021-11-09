@@ -1,0 +1,131 @@
+#!/bin/bash
+
+op=${0##*-}
+
+name=""
+version=""
+release=""
+kernelrelease=""
+flavor=""
+variant=""
+usrmerged="0"
+image=""
+certs=""
+
+while true ; do
+    case $1 in
+	--name)
+	    name="$2"
+	    shift
+	    ;;
+	--version)
+	    version="$2"
+	    shift
+	    ;;
+	--release)
+	    release="$2"
+	    shift
+	    ;;
+
+	--kernelrelease)
+	    kernelrelease="$2"
+	    shift
+	    ;;
+	--flavor)
+	    flavor="$2"
+	    shift
+	    ;;
+	--variant)
+	    variant="$2"
+	    shift
+	    ;;
+
+	--usrmerged)
+	    usrmerged="$2"
+	    shift
+	    ;;
+	--image)
+	    image="$2"
+	    shift
+	    ;;
+	--certs)
+	    certs="$2"
+	    shift
+	    ;;
+
+	*) break
+	    ;;
+    esac
+    shift
+done
+
+wm2=/usr/lib/module-init-tools/weak-modules2
+nvr="$name"-"$version"-"$release"
+
+if [ "$usrmerged" -ne 0 ] ; then
+    modules_dir=/usr/lib/modules/$kernelrelease-$flavor
+    system_map=${modules_dir}/System.map
+else
+    modules_dir=/lib/modules/$kernelrelease-$flavor
+    system_map=/boot/System.map-$kernelrelease-$flavor
+fi
+
+run_wm2() {
+    [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo wm2 "$@" >&2
+    /bin/bash -${-/e/} $wm2 "$@"
+}
+
+[ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
+    echo KMP "$op" name: "$name" version: "$version" release: "$release" \
+    kernelrelease: "$kernelrelease" flavor: "$flavor" variant: "$variant" \
+    usrmerged: "$usrmerged" image: "$image" certs: "$certs" -- "$@" >&2
+
+script_rc=0
+
+case $op in
+    pre)
+	;;
+    post)
+	if [ -x "$wm2" ]; then
+	    rpm -ql "$nvr" | INITRD_IN_POSTTRANS=1 run_wm2 --add-kernel-modules $kernelrelease-$flavor || script_rc=$?
+	fi
+	;;
+    preun)
+	rpm -ql "$nvr" | sed -n '/\.ko\(\.xz\|\.gz\|\.zst\)\?$/p' > "/var/run/rpm-$nvr-modules" || script_rc=$?
+	;;
+    postun)
+	mapfile -t modules < "/var/run/rpm-$nvr-modules"
+	rm -f "/var/run/rpm-$nvr-modules"
+
+	# Only pass modules to weak-modules2 which have actually been removed.
+	# Modules can still exist e.g. if a kernel subpackage is updated and
+	# only the build number changed (kernel release remained the same);
+	# in this case the resulting list of modules will actually be empty.
+	# This is similar to the check for $system_map in rpm-script.
+	for __i in "${!modules[@]}"; do
+	    if [[ -e "${modules[$__i]}" ]]; then
+		unset -v modules["$__i"]
+	    fi
+	done
+	if [[ "${#modules[@]}" == 0 ]]; then
+	    echo "$nvr: no kernel modules removed" >&2
+	    exit 0
+	fi
+	if [ -x "$wm2" ]; then
+	    printf '%s\n' "${modules[@]}" | run_wm2 --remove-kernel-modules $kernelrelease-$flavor || script_rc=$?
+	fi
+	;;
+    posttrans)
+	if test -x /usr/lib/module-init-tools/regenerate-initrd-posttrans; then
+	    /bin/bash -c 'set +e; /usr/lib/module-init-tools/regenerate-initrd-posttrans' || script_rc=$?
+	fi
+	;;
+    *)
+	echo Unknown scriptlet "$op" >&2
+	exit 255
+	;;
+esac
+
+exit $script_rc
+
+# vim: set sts=4 sw=4 ts=8 noet:
