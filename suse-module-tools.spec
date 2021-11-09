@@ -177,8 +177,8 @@ install -m 755 udev-trigger-generator %{buildroot}/usr/lib/systemd/system-genera
 %endif
 
 # udev rules (formerly system-tuning-common-SUSE, udev-extra-rules)
-install -d -m 755 %{buildroot}/%{_prefix}/lib/udev/rules.d/
-install -m 644 udevrules/*.rules %{buildroot}/%{_prefix}/lib/udev/rules.d/
+install -d -m 755 %{buildroot}/%{_udevrulesdir}
+install -m 644 udevrules/*.rules %{buildroot}/%{_udevrulesdir}
 
 mkdir -p %{buildroot}%{_defaultlicensedir}
 
@@ -258,7 +258,7 @@ exit 0
 %{_unitdir}/*.service
 %{_unitdir}/systemd-sysctl.service.d
 %{_modulesloaddir}
-/%{_prefix}/lib/udev/rules.d/
+%{_udevrulesdir}
 %ifarch ppc64 ppc64le
 /usr/lib/systemd/system-generators
 %endif
