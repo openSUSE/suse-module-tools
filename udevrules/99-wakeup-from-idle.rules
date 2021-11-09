@@ -1,0 +1,3 @@
+# enable usb and standard AT Keyboards as wakeup sources for suspend-to-idle (S2I) fate#323814
+ACTION=="add", ATTR{power/wakeup}=="disabled", SUBSYSTEM=="serio", ATTR{description}=="i8042 KBD port", ATTR{power/wakeup}="enabled"
+ACTION=="add", ATTR{power/wakeup}=="disabled", SUBSYSTEM=="hid", ATTRS{bInterfaceProtocol}=="01", ATTR{power/wakeup}="enabled"
