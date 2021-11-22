@@ -108,8 +108,6 @@ sed -i 's/@FS_BLACKLIST@.*/%{fs_blacklist}/' README.md
 %install
 install -d -m 755 "%{buildroot}%{modprobe_dir}"
 install -d -m 755 "%{buildroot}%{_sysconfdir}/modprobe.d"
-install -pm644 "10-unsupported-modules.conf" \
-	"%{buildroot}%{modprobe_dir}/"
 install -pm644 -t "%{buildroot}%{modprobe_dir}" modprobe.conf/common/*.conf
 if [ -d modprobe.conf/%{_arch} ]; then
     install -pm644 -t "%{buildroot}%{modprobe_dir}" modprobe.conf/%{_arch}/*.conf
