@@ -15,5 +15,12 @@ install ata_piix /sbin/modprobe ahci 2>&1 |:; /sbin/modprobe --ignore-install at
 # QEMU/KVM can handle ACPI Hotplugging
 alias dmi:bvnQEMU:bvrQEMU:* acpiphp
 
+# Intel Speed Select Technology (ISST)
+# The isst_if_mbox_msr driver uses a modalias based on CPU family and model,
+# which is too unspecific. On large systems, this causes a lot of failing
+# modprobe attempts for this driver, leading to slow or even stalled boot
+# (bsc#1187196).
+blacklist isst_if_mbox_msr
+
 # end of x86_64 part for modprobe.conf
 
