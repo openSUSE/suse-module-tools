@@ -106,23 +106,19 @@ SLE 11 and later. It is still used by the DKMS module packaging framework.
 sed -i 's/@FS_BLACKLIST@.*/%{fs_blacklist}/' README.md
 
 %install
-# now assemble the parts for modprobe.conf
-cp modprobe.conf/modprobe.conf.common 00-system.conf
-%ifarch ppc64le
-ln -f modprobe.conf/modprobe.conf.ppc64 modprobe.conf/modprobe.conf.$RPM_ARCH
-%endif
-if [ -f "modprobe.conf/modprobe.conf.$RPM_ARCH" ]; then
-	cat "modprobe.conf/modprobe.conf.$RPM_ARCH" >>00-system.conf
-fi
 install -d -m 755 "%{buildroot}%{modprobe_dir}"
 install -d -m 755 "%{buildroot}%{_sysconfdir}/modprobe.d"
-install -pm644 "10-unsupported-modules.conf" \
-	"%{buildroot}%{modprobe_dir}/"
-install -pm644 00-system.conf "%{buildroot}%{modprobe_dir}/"
-
-%if 0%{?suse_version} >= 1550 || 0%{?sle_version} >= 150100
-install -pm644 modprobe.conf/modprobe.conf.blacklist "%{buildroot}%{modprobe_dir}/50-blacklist.conf"
+install -pm644 -t "%{buildroot}%{modprobe_dir}" modprobe.conf/common/*.conf
+if [ -d modprobe.conf/%{_arch} ]; then
+    install -pm644 -t "%{buildroot}%{modprobe_dir}" modprobe.conf/%{_arch}/*.conf
+fi
+%ifarch i386
+install -pm644 -t "%{buildroot}%{modprobe_dir}" modprobe.conf/x86_64/*.conf
 %endif
+%ifarch ppc64le
+install -pm644 -t "%{buildroot}%{modprobe_dir}" modprobe.conf/ppc64/*.conf
+%endif
+
 install -d -m 755 "%{buildroot}/%{depmod_dir}"
 install -d -m 755 "%{buildroot}%{_sysconfdir}/depmod.d"
 install -pm 644 "depmod-00-system.conf" "%{buildroot}%{depmod_dir}/00-system.conf"
@@ -177,8 +173,8 @@ install -m 755 udev-trigger-generator %{buildroot}/usr/lib/systemd/system-genera
 %endif
 
 # udev rules (formerly system-tuning-common-SUSE, udev-extra-rules)
-install -d -m 755 %{buildroot}/%{_prefix}/lib/udev/rules.d/
-install -m 644 udevrules/*.rules %{buildroot}/%{_prefix}/lib/udev/rules.d/
+install -d -m 755 %{buildroot}%{_udevrulesdir}
+install -m 644 udevrules/*.rules %{buildroot}%{_udevrulesdir}
 
 mkdir -p %{buildroot}%{_defaultlicensedir}
 
@@ -258,7 +254,7 @@ exit 0
 %{_unitdir}/*.service
 %{_unitdir}/systemd-sysctl.service.d
 %{_modulesloaddir}
-/%{_prefix}/lib/udev/rules.d/
+%{_udevrulesdir}
 %ifarch ppc64 ppc64le
 /usr/lib/systemd/system-generators
 %endif

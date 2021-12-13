@@ -5,6 +5,7 @@ Conflicts=shutdown.target
 Before=systemd-sysctl.service
 After=systemd-modules-load.service
 ConditionPathExists=!/usr/lib/modules/%v/sysctl.conf
+ConditionPathExists=/boot/sysctl.conf-%v
 RequiresMountsFor=/boot
 
 [Service]
