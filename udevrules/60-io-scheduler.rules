@@ -25,6 +25,14 @@ KERNEL=="loop[0-9]*", ATTR{queue/scheduler}="none", GOTO="scheduler_end"
 
 # --- EDIT BELOW HERE after copying to /etc/udev/rules.d ---
 
+# Uncomment these if you want to force virtual devices to use no scheduler
+# KERNEL=="vd[a-z]*", ATTR{queue/scheduler}="none", GOTO="scheduler_end"
+# KERNEL=="xvd[a-z]*", ATTR{queue/scheduler}="none", GOTO="scheduler_end"
+
+# Leave virtual devices untouched
+KERNEL=="vd[a-z]*", GOTO="scheduler_end"
+KERNEL=="xvd[a-z]*", GOTO="scheduler_end"
+
 # 1. BFQ scheduler for single-queue HDD
 ATTR{queue/rotational}!="0", TEST!="%S%p/mq/1", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
 
