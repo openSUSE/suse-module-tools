@@ -54,7 +54,7 @@ for f in "$dir"/*; do
 		echo "$0: /boot/$image does not exist, initrd won't be generated"
 		continue
 	fi
-	if ! "$DRACUT" -f "/boot/initrd-$kver" "$kver"; then
+	if ! "$DRACUT" -f --kver "$kver"; then
 		err=$?
 	fi
 done
