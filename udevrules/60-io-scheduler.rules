@@ -20,6 +20,8 @@ ATTR{queue/scheduler}=="none", GOTO="scheduler_end"
 ATTR{queue/zoned}!="none", GOTO="scheduler_end"
 # Enforce "none" for multipath components.
 ENV{DM_MULTIPATH_DEVICE_PATH}=="1", ATTR{queue/scheduler}="none", GOTO="scheduler_end"
+# Enforce "none" for loop devices
+KERNEL=="loop[0-9]*", ATTR{queue/scheduler}="none", GOTO="scheduler_end"
 
 # --- EDIT BELOW HERE after copying to /etc/udev/rules.d ---
 
