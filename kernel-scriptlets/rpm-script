@@ -193,13 +193,15 @@ EOF
 	    # if /boot and /usr are not speparate partitions we can just link
 	    # the kernel there to save space. Otherwise copy.
 	    if mountpoint -q /boot || mountpoint -q /usr; then
-		copy_or_link="cp -a"
+		copy_or_link="cp -a --remove-destination"
+		separate_boot='1'
 	    else
 		copy_or_link="ln -sf"
+		separate_boot=""
 	    fi
 	    # XXX: need to fix suse-module-tools for sysctl.conf and System.map
 	    for x in "$image" sysctl.conf System.map config; do
-		if [ ! -e /boot/$x-"$kernelrelease"-"$flavor" ]; then
+		if [ "$separate_boot" = 1 ] || [ ! -e /boot/$x-"$kernelrelease"-"$flavor" ]; then
 		    $copy_or_link .."$modules_dir"/$x /boot/$x-"$kernelrelease"-"$flavor" || script_rc=$?
 		    if [ -e "$modules_dir"/.$x.hmac ]; then
 			$copy_or_link .."$modules_dir"/.$x.hmac /boot/.$x-"$kernelrelease"-"$flavor".hmac || script_rc=$?
