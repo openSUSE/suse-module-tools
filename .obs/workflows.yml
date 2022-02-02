@@ -3,4 +3,4 @@ workflow:
      - branch_package:
          source_project: home:mwilck:suse-module-tools
          source_package: suse-module-tools
-         target_project: home:mwilck
+         target_project: home:mwilck:suse-module-tools
