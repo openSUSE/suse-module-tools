@@ -177,10 +177,9 @@ install -pm 644 boot-sysctl.service "%{buildroot}%{_unitdir}"
 echo 'Wants=boot-sysctl.service' >>"%{buildroot}%{sysctl_dropin}"
 %endif
 
-# Ensure that the sg driver is loaded early (bsc#1036463)
-# Not needed in SLE11, where sg is loaded via udev rule.
 install -d -m 755 "%{buildroot}%{_modulesloaddir}"
-install -pm 644 sg.conf "%{buildroot}%{_modulesloaddir}"
+install -pm 644 -t "%{buildroot}%{_modulesloaddir}" modules-load.d/*.conf
+
 %ifarch ppc64 ppc64le
 install -d -m 755 %{buildroot}/usr/lib/systemd/system-generators
 install -pm 755 udev-trigger-generator %{buildroot}/usr/lib/systemd/system-generators
