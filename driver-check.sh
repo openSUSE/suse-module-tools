@@ -10,6 +10,22 @@ warnings=0
 trap 'rm -rf "$tmp"' EXIT
 tmp=$(mktemp -d)
 
+find_usrmerge_boot() {
+    local filename=$1
+    local kver=$2
+    local ext=${3:+."$3"}
+    local f
+
+    for f in "/usr/lib/modules/$kver/$filename$ext" "/boot/$filename-$kver$ext"
+    do
+	if [ -e "$f" ]; then
+	    echo "$f"
+	    return
+	fi
+    done
+    echo "WARNING: find_usrmerge_boot: $filename$ext not found for kernel $kver" >&2
+}
+
 find_depmod() {
     local _d
 
@@ -125,8 +141,8 @@ check_krel()
 	local krel=$1 system_map module_symvers msg res args bad=false
 	local mit_version
 
-	system_map="/boot/System.map-$krel"
-	module_symvers="/boot/symvers-$krel.gz"
+	system_map=$(find_usrmerge_boot System.map "$krel")
+	module_symvers=$(find_usrmerge_boot symvers "$krel" gz)
 	if ! test -e "$system_map"; then
 		error "$system_map not found"
 		bad=true
@@ -136,7 +152,7 @@ check_krel()
 		bad=true
 	fi
 	if $bad; then
-		explain "Each kernel must install /boot/System.map-\$version and /boot/symvers-\$version.gz to be able to check module dependencies."
+		explain "Each kernel must install System.map and symvers.gz to be able to check module dependencies."
 		return
 	fi
 	set -- $("$DEPMOD" --version | sed -rn 's/.* ([0-9]+)(\.([0-9]+)(\..*)?)?/\1 \3/p')
