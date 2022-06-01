@@ -91,6 +91,22 @@ find_depmod() {
     dlog "DEPMOD=$DEPMOD"
 }
 
+find_usrmerge_boot() {
+    local filename=$1
+    local kver=$2
+    local ext=${3:+."$3"}
+    local f
+
+    for f in "/usr/lib/modules/$kver/$filename$ext" "/boot/$filename-$kver$ext"
+    do
+	if [ -e "$f" ]; then
+	    echo "$f"
+	    return
+	fi
+    done
+    log "WARNING: find_usrmerge_boot: $filename$ext not found for kernel $kver"
+}
+
 log() {
     [ $opt_verbose -gt 0 ] && echo "$@" >&2
     return 0
@@ -197,20 +213,23 @@ create_temporary_modules_dir() {
 has_unresolved_symbols() {
     local krel=$1 basedir=$2 output status args sym_errors _f
 
-    if [ ! -e $tmpdir/symvers-$krel ]; then
-	for _f in /boot/symvers-$krel.gz /usr/lib/modules/$krel/symvers.gz; do
-	    if [ -e $_f ]; then
-		dlog "has_unresolved_symbols: found $_f"
-		zcat $_f >$tmpdir/symvers-$krel
-		break
-	    fi
-	done
+    if [ ! -e "$tmpdir/symvers-$krel" ]; then
+	_f=$(find_usrmerge_boot symvers "$krel" gz)
+	if [ -n "$_f" ]; then
+	    dlog "has_unresolved_symbols: found $_f"
+	    zcat "$_f" >"$tmpdir/symvers-$krel"
+	fi
     fi
     if [ -e $tmpdir/symvers-$krel ]; then
 	args=(-E $tmpdir/symvers-$krel)
     else
-	echo "warning: $tmpdir/symvers-$krel not available" >&2
-	args=(-F /boot/System.map-$krel)
+	echo "WARNING: symvers.gz not found for $krel, symbol resolution will be unreliable" >&2
+	_f=$(find_usrmerge_boot System.map "$krel")
+	if [ -n "$_f" ]; then
+	    args=(-F "$_f")
+	else
+	    echo "WARNING: System.map not found for $krel, symbol resolution may fail" >&2
+	fi
     fi
     output="$("$DEPMOD" -b "$basedir" -ae "${args[@]}" $krel 2>&1)"
     status=$?
@@ -434,17 +453,19 @@ needs_initrd() {
 run_depmod_build_initrd() {
     local krel=$1
     local status=0
+    local system_map
 
-    if [ -d /lib/modules/$krel -a -f /boot/System.map-$krel ] ; then
-	doit "$DEPMOD" -F /boot/System.map-$krel -ae $krel || return 1
+    if [ -d /lib/modules/$krel ]; then
+	system_map=$(find_usrmerge_boot System.map "$krel")
+	if [ -n "$system_map" ]; then
+	   doit "$DEPMOD" -F "$system_map" -ae "$krel" || return 1
+	fi
     fi
     if needs_initrd $krel; then
-	local image
+	local image x
 	for x in vmlinuz image vmlinux linux bzImage uImage Image zImage; do
-	    if [ -f /boot/$x-$krel ]; then
-		image=$x
-		break
-	    fi
+	    image=$(find_usrmerge_boot "$x" "$krel")
+	    [ -z "$image" ] || break
 	done
 	if [ -n "$image" ]; then
 	    if test -n "$INITRD_IN_POSTTRANS"; then
@@ -500,8 +521,9 @@ walk_kmps() {
 
 kernel_changed() {
     local krel=$1 flavor=${1##*-}
+    local system_map=$(find_usrmerge_boot System.map "$krel")
 
-    if [ ! -f /boot/System.map-$krel ]; then
+    if [ -z "$system_map" ]; then
 	# this kernel does not exist anymore
 	dlog "kernel_changed: kernel removed"
 	return 0
@@ -552,6 +574,7 @@ remove_kernel_modules() {
 add_kmp() {
     local kmp=$1 kmpshort=${1%-*-*}
     local basename=${kmpshort%-kmp-*} flavor=${kmpshort##*-}
+    local system_map
 
     # Find the kmp to be added as well as any previous versions
     find_kmps "$basename" "$flavor" || return 1
@@ -566,7 +589,9 @@ add_kmp() {
             continue
         esac
 	dlog "add_kmp: processing $kmp for $krel"
-	[ -d $dir -a -f /boot/System.map-$krel ] || continue
+	[ -d $dir ] || continue
+	system_map=$(find_usrmerge_boot System.map "$krel")
+	[ -n "$system_map" ] || continue
 	if opt_debug=1 has_unresolved_symbols "$krel" "/"; then
 	    echo "Warning: /lib/modules/$krel is inconsistent" >&2
 	    echo "Warning: weak-updates symlinks might not be created" >&2
@@ -611,7 +636,7 @@ remove_kmp() {
     sed 's:^/usr::' > $tmpdir/modules-$kmp
     check_kmp "$kmp" || return 1
 
-    local dir krel status
+    local dir krel status system_map
     for dir in /lib/modules/*; do
 	krel=${dir#/lib/modules/}
         case "$krel" in
@@ -620,7 +645,9 @@ remove_kmp() {
         *)
             continue
         esac
-	[ -d $dir -a -f /boot/System.map-$krel ] || continue
+	[ -d $dir ] || continue
+	system_map=$(find_usrmerge_boot System.map "$krel")
+	[ -n "$system_map" ] || continue
 	dlog "remove_kmp: processing $kmp for $krel"
 	if kmp_is_present $kmp $krel; then
 	    local other_found=0 inconsistent=0
