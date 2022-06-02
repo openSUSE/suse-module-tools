@@ -10,6 +10,22 @@ warnings=0
 trap 'rm -rf "$tmp"' EXIT
 tmp=$(mktemp -d)
 
+find_usrmerge_boot() {
+    local filename=$1
+    local kver=$2
+    local ext=${3:+."$3"}
+    local f
+
+    for f in "/usr/lib/modules/$kver/$filename$ext" "/boot/$filename-$kver$ext"
+    do
+	if [ -e "$f" ]; then
+	    echo "$f"
+	    return
+	fi
+    done
+    echo "WARNING: find_usrmerge_boot: $filename$ext not found for kernel $kver" >&2
+}
+
 find_depmod() {
     local _d
 
@@ -115,7 +131,7 @@ check_kernel_package()
 	if ! rpm -q --qf '%{description}\n' "$kernel" | grep -q '^GIT '; then
 		error "$kernel does not look like a SUSE kernel package (no commit id)"
 	fi
-	if ! rpm -q --qf '%{postin}\n' "$kernel" | grep -q 'weak-modules2'; then
+	if ! rpm -q --qf '%{postin}\n' "$kernel" | egrep -Eq 'weak-modules2|kernel-scriptlets/rpm-post'; then
 		error "$kernel does not look like a SUSE kernel package (wrong %post script)"
 	fi
 }
@@ -125,8 +141,8 @@ check_krel()
 	local krel=$1 system_map module_symvers msg res args bad=false
 	local mit_version
 
-	system_map="/boot/System.map-$krel"
-	module_symvers="/boot/symvers-$krel.gz"
+	system_map=$(find_usrmerge_boot System.map "$krel")
+	module_symvers=$(find_usrmerge_boot symvers "$krel" gz)
 	if ! test -e "$system_map"; then
 		error "$system_map not found"
 		bad=true
@@ -136,7 +152,7 @@ check_krel()
 		bad=true
 	fi
 	if $bad; then
-		explain "Each kernel must install /boot/System.map-\$version and /boot/symvers-\$version.gz to be able to check module dependencies."
+		explain "Each kernel must install System.map and symvers.gz to be able to check module dependencies."
 		return
 	fi
 	set -- $("$DEPMOD" --version | sed -rn 's/.* ([0-9]+)(\.([0-9]+)(\..*)?)?/\1 \3/p')
@@ -170,7 +186,7 @@ check_kmp()
 {
 	local kmp=$1 prefix prev_krel krel path found_module=false
 
-	if ! rpm -q --qf '%{postin}\n' "$kmp" | grep -q 'weak-modules2'; then
+	if ! rpm -q --qf '%{postin}\n' "$kmp" | egrep -Eq 'weak-modules2|kernel-scriptlets/kmp-post'; then
 		error "$kmp does not look like a SUSE kernel module package (wrong %post)"
 	fi
 	if ! rpm -q -R "$kmp" | grep -Eq "$req_re"; then
@@ -305,7 +321,7 @@ for rpm in $(rpm -qa --qf '%{n}-%{v}-%{r}\n' 'kernel-*' '*-kmp-*' | \
 	case "$rpm" in
 	kernel-source-* | kernel-syms-* | kernel-*-debug* | kernel-*-man-* | \
 	kernel-*-devel-* | kernel-firmware-* | kernel-coverage-* | \
-	kernel-docs-* | kernel-devel-* | kernel-macros-*)
+	kernel-docs-* | kernel-devel-* | kernel-macros-* | kernel-install-tools-*)
 		continue
 	esac
 	# store the filelist to speed up file_owner()
