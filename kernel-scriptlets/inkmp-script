@@ -72,7 +72,7 @@ fi
 
 run_wm2() {
     [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo wm2 "$@" >&2
-    /bin/bash -${-/e/} $wm2 "$@"
+    $wm2 "$@"
 }
 
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
