@@ -115,7 +115,7 @@ check_kernel_package()
 	if ! rpm -q --qf '%{description}\n' "$kernel" | grep -q '^GIT '; then
 		error "$kernel does not look like a SUSE kernel package (no commit id)"
 	fi
-	if ! rpm -q --qf '%{postin}\n' "$kernel" | egrep -Eq 'weak-modules2|kernel-scriptlets/rpm-post'; then
+	if ! rpm -q --qf '%{postin}\n' "$kernel" | grep -Eq 'weak-modules2|kernel-scriptlets/rpm-post'; then
 		error "$kernel does not look like a SUSE kernel package (wrong %post script)"
 	fi
 }
@@ -170,7 +170,7 @@ check_kmp()
 {
 	local kmp=$1 prefix prev_krel krel path found_module=false
 
-	if ! rpm -q --qf '%{postin}\n' "$kmp" | egrep -Eq 'weak-modules2|kernel-scriptlets/kmp-post'; then
+	if ! rpm -q --qf '%{postin}\n' "$kmp" | grep -Eq 'weak-modules2|kernel-scriptlets/kmp-post'; then
 		error "$kmp does not look like a SUSE kernel module package (wrong %post)"
 	fi
 	if ! rpm -q -R "$kmp" | grep -Eq "$req_re"; then
