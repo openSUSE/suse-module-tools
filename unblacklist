@@ -36,11 +36,11 @@ if [ -L "$CONF" ]; then
 	exit 1
     fi
 elif [ -f "$CONF" ]; then
-    if ! egrep -q "^[ 	]*blacklist[ 	]+$MODULE" "$CONF"; then
+    if ! grep -E -q "^[ 	]*blacklist[ 	]+$MODULE" "$CONF"; then
 	# not blacklisted
 	exit 0
     fi
-    if ! egrep -q '^# __THIS FILE MAY BE MODIFIED__' "$CONF"; then
+    if ! grep -E -q '^# __THIS FILE MAY BE MODIFIED__' "$CONF"; then
 	echo "$ME: $CONF exists, cannot modify it" >&2
 	exit 1
     fi
