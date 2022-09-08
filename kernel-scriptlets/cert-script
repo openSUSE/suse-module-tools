@@ -60,16 +60,19 @@ case $op in
 	if [ -n "$ca_check" ] && mokutil -h | grep -q "ignore-keyring"; then
 	    MOK_ARGS="${MOK_ARGS} --ignore-keyring"
 	fi
-	# XXX: Only call mokutil if UEFI and shim are used
-	for cert in $certs; do
-	    cert="/etc/uefi/certs/${cert}.crt"
-	    run_mokutil --import "$cert" --root-pw ${MOK_ARGS}
-	    rc=$?
-	    if [ $rc != 0 ] ; then
-		script_rc=$rc
-		echo "Failed to import $cert" >&2
-	    fi
-	done
+	# XXX: Only call mokutil if UEFI and shim are used and efivarfs is writeable
+	test -w /sys/firmware/efi/efivars
+	if [ $? == 0 ] ; then
+	    for cert in $certs; do
+	        cert="/etc/uefi/certs/${cert}.crt"
+	        run_mokutil --import "$cert" --root-pw ${MOK_ARGS}
+	        rc=$?
+	        if [ $rc != 0 ] ; then
+		    script_rc=$rc
+		    echo "Failed to import $cert" >&2
+		fi
+	    done
+	fi
 	;;
     preun)
 	for cert in $certs; do
