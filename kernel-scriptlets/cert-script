@@ -64,14 +64,16 @@ case $op in
 	test -w /sys/firmware/efi/efivars
 	if [ $? == 0 ] ; then
 	    for cert in $certs; do
-	        cert="/etc/uefi/certs/${cert}.crt"
-	        run_mokutil --import "$cert" --root-pw ${MOK_ARGS}
-	        rc=$?
-	        if [ $rc != 0 ] ; then
+		cert="/etc/uefi/certs/${cert}.crt"
+		run_mokutil --import "$cert" --root-pw ${MOK_ARGS}
+		rc=$?
+		if [ $rc != 0 ] ; then
 		    script_rc=$rc
 		    echo "Failed to import $cert" >&2
 		fi
 	    done
+	else
+	    test -d /sys/firmware/efi/efivars && echo "WARNING: cannot update MOK variables since /sys/firmware/efi/efivars is not writeable" 1>&2
 	fi
 	;;
     preun)
