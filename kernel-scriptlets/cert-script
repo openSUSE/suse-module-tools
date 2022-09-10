@@ -73,7 +73,7 @@ case $op in
 		fi
 	    done
 	else
-	    test -d /sys/firmware/efi/efivars && echo "WARNING: cannot update MOK variables since /sys/firmware/efi/efivars is not writeable" 1>&2
+	    test ! -d /sys/firmware/efi/efivars || echo "WARNING: cannot update MOK variables since /sys/firmware/efi/efivars is not writeable" 1>&2
 	fi
 	;;
     preun)
