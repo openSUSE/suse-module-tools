@@ -38,6 +38,10 @@ if ! is_efi; then
 	echo "$0: system doesn't support UEFI, skipping certificate handling" >&2
     exit 0
 fi
+if [ ! -w /sys/firmware/efi/efivars ]; then
+    echo "$0: efivarfs is not writable, skipping certificate handling" >&2
+    exit 0
+fi
 
 run_mokutil () {
     [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo mokutil "$@" >&2
