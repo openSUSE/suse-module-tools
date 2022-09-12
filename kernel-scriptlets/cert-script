@@ -39,7 +39,12 @@ if ! is_efi; then
     exit 0
 fi
 if [ ! -w /sys/firmware/efi/efivars ]; then
-    echo "$0: efivarfs is not writable, skipping certificate handling" >&2
+    mkdir -p /run/suse-kernel-rpm-scriptlets
+    if [ -n "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
+	   [ ! -e /run/suse-kernel-rpm-scriptlets/cert-warning ]; then
+	echo "$0: efivarfs is not writable, skipping certificate handling" >&2
+    fi
+    touch /run/suse-kernel-rpm-scriptlets/cert-warning
     exit 0
 fi
 
