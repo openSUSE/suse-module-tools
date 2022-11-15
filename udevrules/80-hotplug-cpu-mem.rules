@@ -4,12 +4,10 @@
 ACTION!="add", GOTO="hotplug_cpu_end"
 SUBSYSTEM!="cpu|memory", GOTO="hotplug_cpu_end"
 
-PROGRAM=="/usr/bin/uname -m", ENV{.ARCH}="$result"
-
 #
 # Hotplug physical CPU
 #
-SUBSYSTEM=="cpu", ENV{.ARCH}=="x86_64", TEST=="online", ATTR{online}=="0", ATTR{online}="1"
+SUBSYSTEM=="cpu", CONST{arch}=="x86-64", TEST=="online", ATTR{online}=="0", ATTR{online}="1"
 
 #
 # Hotplug physical memory. Instances of tmpfs are remounted so their
@@ -20,7 +18,7 @@ SUBSYSTEM=="cpu", ENV{.ARCH}=="x86_64", TEST=="online", ATTR{online}=="0", ATTR{
 # lot of shortcomings anyways (tmpfs mounted by other processes, mount
 # namespaces, ...)
 #
-SUBSYSTEM=="memory", ENV{.ARCH}!="s390x", ATTR{state}=="offline", ATTR{state}="online", \
+SUBSYSTEM=="memory", CONST{arch}!="s390x", ATTR{state}=="offline", ATTR{state}="online", \
   RUN+="/bin/sh -c ' \
     while read src dst fs opts unused; do \
       case $$fs in \
