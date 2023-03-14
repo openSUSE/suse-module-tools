@@ -86,19 +86,6 @@ This package contains helper scripts for KMP installation and
 uninstallation, as well as default configuration files for depmod and
 modprobe.
 
-
-%package legacy
-Summary:        Legacy "weak-modules" script for Code10
-Group:          System/Base
-Requires:       %{name}
-Requires:       binutils
-Supplements:    dkms
-
-%description legacy
-This package contains the legacy "weak-modules" script for kernel
-module package (KMP) support. It was replaced by "weak-modules2" in
-SLE 11 and later. It is still used by the DKMS module packaging framework.
-
 %prep
 %setup -q
 
@@ -140,7 +127,7 @@ install -pm 644 "depmod-00-system.conf" "%{buildroot}%{depmod_dir}/00-system.con
 # "/usr/lib/module-init-tools" name hardcoded in other packages
 install -d -m 755 "%{buildroot}/usr/lib/module-init-tools"
 install -pm 755 -t "%{buildroot}/usr/lib/module-init-tools/" \
-	weak-modules{,2} driver-check.sh unblacklist lsinitrd-quick
+	weak-modules2 driver-check.sh unblacklist lsinitrd-quick
 
 %if 0%{?suse_version} < 1550
 # rpm macros and helper
@@ -264,7 +251,6 @@ exit 0
 %endif
 %{_bindir}/kmp-install
 /usr/lib/module-init-tools
-%exclude /usr/lib/module-init-tools/weak-modules
 %{_unitdir}/*.service
 %{_unitdir}/systemd-sysctl.service.d
 %{_modulesloaddir}
@@ -272,9 +258,5 @@ exit 0
 %ifarch ppc64 ppc64le
 /usr/lib/systemd/system-generators
 %endif
-
-%files legacy
-%defattr(-,root,root)
-/usr/lib/module-init-tools/weak-modules
 
 %changelog

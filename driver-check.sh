@@ -194,7 +194,7 @@ check_kmp()
 			;;
 		weak-updates/*)
 			error "$kmp installs modules in weak-updates/ instead of updates/ or extra/"
-			explain "The weak-modules directory is reserved for automatically generated symlinks"
+			explain "The weak-updates directory is reserved for automatically generated symlinks"
 			;;
 		*)
 			error "$kmp installs modules in an invalid directory"
