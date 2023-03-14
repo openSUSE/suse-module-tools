@@ -137,7 +137,7 @@ install -d -m 755 "%{buildroot}/%{depmod_dir}"
 install -d -m 755 "%{buildroot}%{_sysconfdir}/depmod.d"
 install -pm 644 "depmod-00-system.conf" "%{buildroot}%{depmod_dir}/00-system.conf"
 
-# "/usr/lib/module-init-tools" name hardcoded in KMPs, mkinitrd, etc.
+# "/usr/lib/module-init-tools" name hardcoded in other packages
 install -d -m 755 "%{buildroot}/usr/lib/module-init-tools"
 install -pm 755 -t "%{buildroot}/usr/lib/module-init-tools/" \
 	weak-modules{,2} driver-check.sh unblacklist lsinitrd-quick
