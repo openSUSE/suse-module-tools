@@ -211,11 +211,11 @@ EOF
 	fi
 
 	# Add symlinks of compatible modules to /lib/modules/$krel/weak-updates/,
-	# run depmod and mkinitrd
+	# run depmod and dracut
 	if [ -x $wm2 ]; then
 	    run_wm2 --add-kernel "$kernelrelease"-"$flavor" || script_rc=$?
 	else
-	    echo "$wm2 does not exist, please run depmod and mkinitrd manually" >&2
+	    echo "$wm2 does not exist, please run depmod and dracut manually" >&2
 	    script_rc=1
 	fi
 
