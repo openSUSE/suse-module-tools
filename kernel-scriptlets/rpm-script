@@ -104,6 +104,52 @@ run_bootloader () {
     fi
 }
 
+log() {
+    [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo "$*" >&2 || :
+}
+
+# Don't run arbitrary stuff:
+# - reject symlinks
+# - only run programs owned by root, and writable by noone but root
+check_perm() {
+    [ ! -L "$1" ] || return 1
+    [ "$(stat -c %u "$1")" -eq 0 ] || return 1
+    [ $((0$(stat -c %a "$1") & 0022)) -eq 0 ] || return 1
+}
+
+_run_parts() {
+    [ -d "$1" ] || return 0
+
+    check_perm "$1" || {
+	log "run_parts: skipping directory $1, bad permissions"
+	return 0
+    }
+
+    for _script in "$1"/*; do
+	[ -f "$_script" ] && [ -x "$_script" ] || continue
+	case "$_script" in
+	    *.dpkg-old|*.dpkg-new|*.dpkg-dist|*dpkg-tmp|\
+		*.bak|*.old|*.rpmnew|*.rpmsave|*~|*\#*|*\*)
+		log "run_parts: skipping script $_script, bad name" >&2
+		continue;;
+	esac
+	check_perm "$_script" || {
+	    log "run_parts: skipping script $_script, bad permissions" >&2
+	    continue
+	}
+	log "run_parts: running script $_script" >&2
+	"$_script" || log "run_parts: script $_script failed!"
+    done
+}
+
+# Similar to Debian's run-parts: run all programs in a list of directories
+run_parts() {
+    while [ $# -gt 0 ]; do
+	_run_parts "$1"
+	shift
+    done
+}
+
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
     echo "$op" name: "$name" version: "$version" release: "$release" \
     kernelrelease: "$kernelrelease" flavor: "$flavor" variant: "$variant" \
@@ -248,6 +294,8 @@ EOF
 	fi
 
 	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
+
+	run_parts /usr/etc/kernel/postinst.d /etc/kernel/postinst.d
 	;;
     preun)
 	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
@@ -283,6 +331,8 @@ EOF
 	fi
 
 	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@"
+
+	run_parts /usr/etc/kernel/postinst.d /etc/kernel/postrm.d
 	;;
     posttrans)
 	;;
