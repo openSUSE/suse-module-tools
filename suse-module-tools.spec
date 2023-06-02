@@ -37,7 +37,7 @@
 %global systemd_units %{?with_boot_sysctl:boot-sysctl.service} %{?with_kernel_sysctl:kernel-sysctl.service}
 
 # List of legacy file systems to be blacklisted by default
-%global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs hfs hpfs jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ufs
+%global fs_blacklist adfs affs bfs befs cramfs efs exofs freevxfs hfs hpfs jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ufs
 
 # List of all files installed under modprobe.d
 # Note: this list contains files installed by previous versions, like 00-system-937216.conf!
