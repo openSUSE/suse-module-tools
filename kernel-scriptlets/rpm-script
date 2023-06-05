@@ -90,20 +90,6 @@ message_install_bl () {
     echo "available bootloader for your platform (e.g. grub, lilo, zipl, ...)."
 }
 
-run_bootloader () {
-    if [ -f /etc/sysconfig/bootloader ] &&
-	[ -f /boot/grub/menu.lst -o \
-	-f /etc/lilo.conf      -o \
-	-f /etc/elilo.conf     -o \
-	-f /etc/zipl.conf      -o \
-	-f /etc/default/grub    ]
-	then
-	    return 0
-	else
-	    return 1
-    fi
-}
-
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
     echo "$op" name: "$name" version: "$version" release: "$release" \
     kernelrelease: "$kernelrelease" flavor: "$flavor" variant: "$variant" \
@@ -227,8 +213,7 @@ EOF
 		if [ "$flavor" = rt ]; then
 		    default=force-default
 		fi
-		if [ -e /boot/$initrd -o ! -e "$modules_dir" ] && \
-		    run_bootloader ; then
+		if [ -e /boot/$initrd -o ! -e "$modules_dir" ]; then
 		    [ -e /boot/$initrd ] || initrd=
 		    if [ -x /usr/lib/bootloader/bootloader_entry ]; then
 			/usr/lib/bootloader/bootloader_entry \
