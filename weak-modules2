@@ -129,10 +129,11 @@ doit() {
     else
 	:
     fi
+    log "Done $1"
 }
 
 strip_mod_extensions() {
-    sed -rn '/^_kernel_$/p;s/\.ko(\.[gx]z|\.zst)?$//p'
+    sed -rn 's/\.ko(\.[gx]z|\.zst)?$//p'
 }
 
 # Name of the symlink that makes a module available to a given kernel
@@ -152,7 +153,7 @@ __kmp_is_present() {
     local module symlink
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
-	[ $module -ef $symlink -o $module = "$(readlink $symlink)" ] || return 1
+	[[ $module -ef $symlink || $module = "$(readlink $symlink)" ]] || return 1
     done < $tmpdir/modules-$kmp
 
     return 0
@@ -174,9 +175,9 @@ add_kmp_modules() {
     local module symlink
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
-	doit mkdir -p ${opt_debug:+-v} $basedir${symlink%/*} || exit 1
-	doit ln -sf ${opt_debug:+-v} $module $basedir$symlink || exit 1
-	dlog "add_kmp_modules: added $module to $krel"
+	mkdir -p $basedir${symlink%/*} || exit 1
+	ln -sf $module $basedir$symlink || exit 1
+	dlog "add_kmp_modules: added $module to $krel in $basedir"
     done < $tmpdir/modules-$kmp
 }
 
@@ -189,7 +190,7 @@ remove_kmp_modules() {
     local module symlink
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
-	doit rm -f ${opt_debug:+-v} $basedir$symlink
+	rm -f $basedir$symlink
 	dlog "remove_kmp_modules: removed $module from $krel"
     done < $tmpdir/modules-$kmp
 }
@@ -202,16 +203,32 @@ create_temporary_modules_dir() {
     mkdir -p $opt_v $basedir$modules_dir/weak-updates
     ln -s $opt_v $modules_dir/kernel $basedir$modules_dir/kernel
 
-    eval "$(find $modules_dir -path "$modules_dir/modules.*" -prune \
-		-o -path "$modules_dir/kernel" -prune \
+    eval "$(find $modules_dir -path "$modules_dir/kernel" -prune \
 		-o -type d -printf "mkdir -p $opt_v $basedir%p\n" \
 		-o -printf "ln -s $opt_v %p $basedir%p\n"
            )"
 }
 
+make_module_symlinks() {
+    local krel=$1 basedir=$2 kmp=$3 n
+    local -n symlinks=$4               # nameref!
+
+    if [[ "$basedir" == / ]]; then
+	# avoid double slash //
+	basedir=
+    fi
+    mapfile -t symlinks <"$tmpdir/modules-$kmp"
+    n=0
+    while [[ $n -lt ${#symlinks[@]} ]]; do
+	symlinks[$n]="$basedir$(symlink_to_module "${symlinks[$n]}" "$krel")"
+	: $((n++))
+    done
+}
+
 # Check for unresolved symbols
 has_unresolved_symbols() {
-    local krel=$1 basedir=$2 output status args sym_errors _f
+    local krel=$1 basedir=$2 kmp=$3 kmp_mods=()
+    local output status args sym_errors _f
 
     if [ ! -e "$tmpdir/symvers-$krel" ]; then
 	_f=$(find_usrmerge_boot symvers "$krel" gz)
@@ -220,8 +237,8 @@ has_unresolved_symbols() {
 	    zcat "$_f" >"$tmpdir/symvers-$krel"
 	fi
     fi
-    if [ -e $tmpdir/symvers-$krel ]; then
-	args=(-E $tmpdir/symvers-$krel)
+    if [ -e "$tmpdir/symvers-$krel" ]; then
+	args=(-E "$tmpdir/symvers-$krel")
     else
 	echo "WARNING: symvers.gz not found for $krel, symbol resolution will be unreliable" >&2
 	_f=$(find_usrmerge_boot System.map "$krel")
@@ -231,8 +248,23 @@ has_unresolved_symbols() {
 	    echo "WARNING: System.map not found for $krel, symbol resolution may fail" >&2
 	fi
     fi
-    output="$("$DEPMOD" -b "$basedir" -ae "${args[@]}" $krel 2>&1)"
-    status=$?
+    if [[ $WM2_DEPMOD_INC && $kmp ]]; then
+	make_module_symlinks "$krel" "$basedir" "$kmp" kmp_mods
+
+	log "$DEPMOD -b $basedir -ae ${args[*]} -I $krel ${kmp_mods[*]}"
+	output="$("$DEPMOD" -I -b "$basedir" -ae "${args[@]}" "$krel" "${kmp_mods[@]}" 2>&1)"
+	status=$?
+	log "$DEPMOD finished"
+    else
+	status=1
+    fi
+    if [[ $status -ne 0 ]]; then
+	# Fallback to full depmod
+	log "$DEPMOD -b $basedir -ae ${args[*]} $krel"
+	output="$("$DEPMOD" -b "$basedir" -ae "${args[@]}" $krel 2>&1)"
+	status=$?
+	log "$DEPMOD finished"
+    fi
     if [ $status -ne 0 ]; then
 	echo "$output" >&2
 	echo "depmod exited with error $status" >&2
@@ -250,13 +282,13 @@ has_unresolved_symbols() {
 
 # KMPs can only be added if none of the module basenames overlap
 basenames_are_unique() {
-    local kmp=$1 krel=$2 basedir=$3 dir
+    local kmp=$1 krel=$2 basedir=$3 dir overlap
 
     for dir in $basedir/lib/modules/$krel/{weak-updates,updates,extra}/; do
         if [ ! -d "$dir" ]; then
             continue
         fi
-	local overlap="$(comm -1 -2 $tmpdir/basenames-$kmp \
+	overlap="$(comm -1 -2 $tmpdir/basenames-$kmp \
                <(find "$dir" -not -type d -printf '%f\n' | sort -u))"
         if [ -n "$overlap" ]; then
 	    dlog "basenames_are_unique: found name overlap for $kmp in $dir: " $overlap
@@ -273,7 +305,6 @@ __can_replace_kmp() {
     local old_kmp=$1 new_kmp=$2 krel=$3
 
     local basedir=$tmpdir/$krel
-    local weak_updates=/lib/modules/$krel/weak-updates/
 
     [ -d "$basedir" ] || \
 	create_temporary_modules_dir "$krel" "$basedir"
@@ -285,7 +316,7 @@ __can_replace_kmp() {
 	return 1
     fi
     doit=1 add_kmp_modules "$new_kmp" "$krel" "$basedir"
-    if has_unresolved_symbols "$krel" "$basedir"; then
+    if has_unresolved_symbols "$krel" "$basedir" "$new_kmp"; then
 	doit=1 remove_kmp_modules "$new_kmp" "$krel" "$basedir"
 	doit=1 add_kmp_modules "$old_kmp" "$krel" "$basedir"
 	return 1
@@ -305,8 +336,9 @@ check_kmp() {
     local kmp=$1
 
     # Make sure all modules are for the same kernel
+    # shellcheck disable=2046
     set -- $(sed -re 's:^/lib/modules/([^/]+)/.*:\1:' \
-		 $tmpdir/modules-$kmp \
+		 "$tmpdir/modules-$kmp" \
 	     | sort -u)
     if [ $# -ne 1 ]; then
 	echo "Error: package $kmp seems to contain modules for multiple" \
@@ -325,6 +357,7 @@ check_kmp() {
     fi
     sed -e 's:.*/::' $tmpdir/modules-$kmp \
 	| sort -u > $tmpdir/basenames-$kmp
+    # shellcheck disable=2046
     dlog "check_kmp: $kmp contains: " $(cat $tmpdir/basenames-$kmp)
 }
 
@@ -358,6 +391,7 @@ find_kmps() {
     | /usr/lib/rpm/rpmsort -r \
     > $tmpdir/kmps
 
+    # shellcheck disable=2046
     dlog "find_kmps: kmps found: " $(cat $tmpdir/kmps)
 }
 
@@ -383,15 +417,17 @@ __previous_version_of_kmp() {
 }
 
 previous_version_of_kmp() {
-    local old="$(__previous_version_of_kmp "$1" "$2")"
-    local res=$?
+    local old res
+
+    old="$(__previous_version_of_kmp "$1" "$2")"
+    res=$?
     dlog "previous_version_of_kmp: kmp=$1 krel=$2 => $old"
     echo "$old"
     return $res
 }
 
 get_initrd_basenames() {
-    $LSINITRD /boot/initrd-$1 | \
+    doit $LSINITRD /boot/initrd-$1 | \
 	sed -rn 's:.*\<lib/modules/.*/::p' | \
 	strip_mod_extensions
 
@@ -401,9 +437,11 @@ get_initrd_basenames() {
 }
 
 # test if rebuilding initrd is needed for $krel.
-# stdin - list of changed modules ("_kernel_" for the whole kernel)
+# arg 1: kernel version
+# arg 2: if non-empty, assume kernel package (must rebuild)
+# stdin - list of changed modules (if arg 2 is empty)
 needs_initrd() {
-    local krel=$1
+    local krel=$1 is_kernel=$2 changed_basenames=() initrd_basenames=() match=()
 
     # Don't generate an initrd for kdump here. It's done automatically with mkdumprd when
     # /etc/init.d/boot.kdump is called to load the kdump kernel. See mkdumprd(8) why
@@ -412,7 +450,7 @@ needs_initrd() {
         return 1
     fi
 
-    if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
+    if ! [[ -f /etc/fstab && ! -e /.buildenv && -x "$DRACUT" ]] ; then
 	echo "Please run \"$DRACUT -f /boot/initrd-$krel $krel\" as soon as your system is complete." >&2
 	return 1
     fi
@@ -424,23 +462,25 @@ needs_initrd() {
 	return 0
     fi
 
-    local changed_basenames=($(strip_mod_extensions | sort -u))
-    dlog "needs_initrd: changed_basenames: " $changed_basenames
-
-    if [ "$changed_basenames" = "_kernel_" ]; then
+    if [[ $is_kernel ]]; then
 	dlog "needs_initrd: yes, kernel package"
 	return 0
     fi
+
+    mapfile -t changed_basenames < <(strip_mod_extensions | sort -u)
+    dlog "needs_initrd: changed_basenames: ${changed_basenames[*]}"
+
     if [ ! -e /boot/initrd-$krel ]; then
 	dlog "needs_initrd: yes, initrd doesn't exist yet"
 	return 0
     fi
-    local initrd_basenames=($(get_initrd_basenames "$krel" | sort -u))
-    dlog "needs_initrd: initrd_basenames: " $initrd_basenames
-    local i=($(join <(printf '%s\n' "${changed_basenames[@]}") \
-	            <(printf '%s\n' "${initrd_basenames[@]}") ))
-    log "changed initrd modules for kernel $krel: ${i[@]-none}"
-    if [ ${#i[@]} -gt 0 ]; then
+    mapfile -t initrd_basenames < <(get_initrd_basenames "$krel" | sort -u)
+
+    dlog "needs_initrd: initrd_basenames: ${initrd_basenames[*]}"
+    mapfile -t match < <(join <(printf '%s\n' "${changed_basenames[@]}") \
+			      <(printf '%s\n' "${initrd_basenames[@]}") )
+    log "changed initrd modules for kernel $krel: ${match[*]-none}"
+    if [ ${#match[@]} -gt 0 ]; then
 	dlog "needs_initrd: yes, modules changed"
 	return 0
     fi
@@ -448,27 +488,53 @@ needs_initrd() {
     return 1
 }
 
-# run depmod and rebuild initrd for kernel version $krel
-# stdin - list of changed modules ("_kernel_" for a whole kernel)
-run_depmod_build_initrd() {
-    local krel=$1
-    local status=0
+# run depmod
+# first arg - kernel release; more args - modules to add (if any),
+# will enable depmod incremental mode
+run_depmod() {
+    local krel=$1 status
+
+    [[ -d /lib/modules/$krel ]] || return
+    system_map=$(find_usrmerge_boot System.map "$krel")
+    [[ $system_map ]] || return
+    shift
+    status=1
+    if [[ $WM2_DEPMOD_INC && $# -gt 0 ]]; then
+	doit "$DEPMOD" -F "$system_map" -ae -I "$krel" "$@"
+	status=$?
+    fi
+    if [[ $status -ne 0 ]]; then
+       # fall back to full depmod
+       doit "$DEPMOD" -F "$system_map" -ae "$krel"
+    fi
+}
+
+get_image_name() {
+    local krel=$1 x
+
+    for x in vmlinuz image vmlinux linux bzImage uImage Image zImage; do
+	if [ -f /boot/"$x-$krel" ]; then
+	    echo "$x"
+	    return
+	fi
+    done
+}
+
+# rebuild initrd for kernel version $krel
+# stdin - list of changed modules
+build_initrd() {
+    local krel=$1 is_kernel=$2 may_delay=$3
+    local status=0 image
     local system_map
 
-    if [ -d /lib/modules/$krel ]; then
-	system_map=$(find_usrmerge_boot System.map "$krel")
-	if [ -n "$system_map" ]; then
-	   doit "$DEPMOD" -F "$system_map" -ae "$krel" || return 1
-	fi
-    fi
-    if needs_initrd $krel; then
+    if needs_initrd $krel $is_kernel; then
 	local image x
 	for x in vmlinuz image vmlinux linux bzImage uImage Image zImage; do
 	    image=$(find_usrmerge_boot "$x" "$krel")
 	    [ -z "$image" ] || break
 	done
 	if [ -n "$image" ]; then
-	    if test -n "$INITRD_IN_POSTTRANS"; then
+	    if [[ "$may_delay" ]]; then
 		mkdir -p /run/regenerate-initrd
 		doit touch /run/regenerate-initrd/$krel
 	    else
@@ -483,12 +549,12 @@ run_depmod_build_initrd() {
 }
 
 walk_kmps() {
-    local krel=$1
-    local kmps=( $(cat $tmpdir/kmps) )
+    local krel=$1 kmp
 
+    mapfile -t kmps < "$tmpdir/kmps"
     while :; do
 	[ ${#kmps[@]} -gt 0 ] || break
-	local added='' skipped='' n kmp
+	local added='' skipped='' n kmp old_kmp
 	for ((n=0; n<${#kmps[@]}; n++)); do
 	    kmp=${kmps[n]}
 	    [ -n "$kmp" ] || continue
@@ -499,7 +565,7 @@ walk_kmps() {
 		kmps[n]=''
 		continue
 	    fi
-	    local old_kmp=$(previous_version_of_kmp $kmp $krel)
+	    old_kmp=$(previous_version_of_kmp $kmp $krel)
 	    if can_replace_kmp "$old_kmp" $kmp $krel; then
 		remove_kmp_modules "$old_kmp" "$krel"
 		add_kmp_modules "$kmp" "$krel"
@@ -515,13 +581,21 @@ walk_kmps() {
 	    dlog "walk_kmps: skipped $kmp"
 	    skipped=1
 	done
-	[ -n "$added" -a -n "$skipped" ] || break
+	[[ -n "$added" && -n "$skipped" ]] || break
     done
 }
 
+# first arg - kernel release
+# 2nd arg: is this a base pkg (-> must rebuild initrd)?
+# 3rd arg: can the initrd build be delayed to %posttrans?
+# other args - modules to add, enables depmod incremental
+# stdin: list of module basenames to feed into build_initrd / needs_initrd
 kernel_changed() {
-    local krel=$1 flavor=${1##*-}
+    local krel=$1 is_basepkg=$2 may_delay=$3 flavor=${1##*-}
     local system_map=$(find_usrmerge_boot System.map "$krel")
+    shift
+    shift
+    shift
 
     if [ -z "$system_map" ]; then
 	# this kernel does not exist anymore
@@ -536,13 +610,14 @@ kernel_changed() {
 	walk_kmps "$krel"
     fi
 
-    echo "_kernel_" | run_depmod_build_initrd "$krel"
+    run_depmod "$krel" "$@"
+    build_initrd "$krel" "$is_basepkg" "$may_delay"
 }
 
 add_kernel() {
     local krel=$1
 
-    kernel_changed $krel
+    kernel_changed "$krel" initrd_needed "$INITRD_IN_POSTTRANS"
 }
 
 remove_kernel() {
@@ -558,28 +633,140 @@ remove_kernel() {
 
 add_kernel_modules() {
     local krel=$1
-    cat >/dev/null
+    local initrd_needed=yes
 
-    kernel_changed $krel
+    sed -rn '/\.ko(|\.xz|\.gz|\.zst)/p' >$tmpdir/kernel-modules
+    sed 's:.*/::' <$tmpdir/kernel-modules >$tmpdir/kernel-basenames
+
+    # If INITRD_IN_POSTTRANS isn't set, and a kernel base package
+    # is installed / updated together with subpackages, the base package
+    # is processed first. If a module from a subpackage is necessary
+    # in the initrd, it will be missing at that stage, and the initrd
+    # will be built without it. Therefore we need to force initrd rebuild
+    # in that case. If INITRD_IN_POSTTRANS is set, this won't happen, and
+    # we only need to force initrd creation if one of the modules of
+    # our subpkg are present in the initrd.
+    if [[ $INITRD_IN_POSTTRANS ]]; then
+	initrd_needed=
+    fi
+    # shellcheck disable=2046
+    kernel_changed "$krel" "$initrd_needed" "$INITRD_IN_POSTTRANS" \
+		   $(cat "$tmpdir/kernel-modules") \
+		   <"$tmpdir/kernel-basenames"
+}
+
+# for package deletion, there's no %posttrans, therefore delaying the
+# initrd rebuild is not generally possible. But if some other package
+# has scheduled a rebuild for the given kernel already, we can.
+# (this would happen on a KMP update, for example).
+may_delay_on_removal() {
+    local krel=$1 res="" image
+
+    if [[ $INITRD_IN_POSTTRANS ]]; then
+	if [[ -e /run/regenerate-initrd/all ]]; then
+	    res="1"
+	else
+	    image=$(get_image_name "$krel")
+
+	    if [[ -e /run/regenerate-initrd/$image-$krel ]]; then
+		res="1"
+	    fi
+	fi
+    fi
+    dlog "may_delay_on_removal => \"$res\""
+    echo "$res"
 }
 
 remove_kernel_modules() {
     local krel=$1
-    cat >/dev/null
 
-    # FIXME: remove KMP symlinks that no longer work
-    kernel_changed $krel
+    # We are removing modules here which might be in the initrd.
+    # We can derive kernel-modules and kernel-basenames like we
+    # do in add_kmp_modules. Why don't we do it?
+    # The common case by far is that kernel subpackages are removed
+    # or updated together with the base package. In that case, rebuilding
+    # the initrd in %postun of the subpackage is just a waste, as the
+    # kernel will be uninstalled anyway.
+    #
+    # In %postun we can't figure out whether or not the base package
+    # will also be uninstalled. If it's not, in the worst case, some modules
+    # will be kept in initramfs that are no longer installed on the system
+    # itself. That shouldn't hurt. By not rebuilding the initrd here,
+    # we speed up the common case.
+    cat >/dev/null
+    kernel_changed "$krel" "" "" </dev/null
+}
+
+add_kmp_for_krel() {
+    local kmp=$1 krel=$2
+    local dir krel status=0 old_kmp syml=()
+
+    dlog "add_kmp: processing $kmp for $krel"
+
+    # The following call to has_unresolved_symbols() would just produce
+    # a warning, in a case that shouldn't occur in a properly configured
+    # system anyway. It could be skipped with no significant feature loss.
+    # But there's a strange performance phenomenon: has_unresolved_symbols()
+    # (i.e. a full depmod run) normally takes ~10s if the module files
+    # aren't in the page cache. Follow-up depmod calls take ~2s only for
+    # zstd-compressed modules. If we skip the call below,
+    # has_unresolved_symbols() will be called later on a temporary copy of
+    # /lib/modules/$krel, where almost all files and directories are
+    # symlinks into the "real" /lib/modules/$krel (see create_temporary_modules_dir()
+    # above). In my tests, the depmod call on the temporary directory
+    # consistently took 30s! The bottom line is that doing this extra
+    # depmod call speeds up the execution of weak_modules2, although it
+    # needs 10 extra seconds in the first place.  If $WM2_DEPMOD_INC is
+    # set, this call has no effect; skip it.
+    if [[ ! $WM2_DEPMOD_INC ]] && opt_debug=1 has_unresolved_symbols "$krel" "/"; then
+	echo "Warning: /lib/modules/$krel is inconsistent" >&2
+	echo "Warning: weak-updates symlinks might not be created" >&2
+    fi
+
+    if kmp_is_present "$kmp" "$krel"; then
+	log "Package $kmp does not need to be added to kernel $krel"
+	run_depmod "$krel" && \
+	    build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" \
+			 <"$tmpdir/basenames-$kmp" || \
+		status=1
+	return "$status"
+    fi
+
+    old_kmp=$(previous_version_of_kmp "$kmp" "$krel")
+    make_module_symlinks "$krel" / "$kmp" syml
+
+    if can_replace_kmp "$old_kmp" "$kmp" "$krel"; then
+	remove_kmp_modules "$old_kmp" "$krel"
+	add_kmp_modules "$kmp" "$krel"
+	if [ -z "$old_kmp" ]; then
+	    log "Package $kmp added to kernel $krel"
+	    run_depmod "$krel" "${syml[@]}" && \
+		build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" \
+			     <"$tmpdir/basenames-$kmp" || \
+		    status=1
+	else
+	    log "Package $old_kmp replaced by package $kmp in kernel $krel"
+	    run_depmod "$krel" "${syml[@]}" && \
+		cat "$tmpdir/basenames-{$old_kmp,$kmp}" \
+		    | build_initrd "$krel" "" "$INITRD_IN_POSTTRANS" || \
+		    status=1
+	fi
+    elif [[ $old_kmp ]]; then
+	log "Package $old_kmp kept in kernel $krel (not replaced by $kmp)"
+    else
+	echo "FAILED to add $kmp in kernel $krel" >&2
+    fi
+    return "$status"
 }
 
 add_kmp() {
     local kmp=$1 kmpshort=${1%-*-*}
     local basename=${kmpshort%-kmp-*} flavor=${kmpshort##*-}
-    local system_map
+    local system_map PIDS=() pid status=0
 
     # Find the kmp to be added as well as any previous versions
     find_kmps "$basename" "$flavor" || return 1
 
-    local dir krel status
     for dir in /lib/modules/*; do
 	krel=${dir#/lib/modules/}
         case "$krel" in
@@ -588,45 +775,68 @@ add_kmp() {
         *)
             continue
         esac
-	dlog "add_kmp: processing $kmp for $krel"
-	[ -d $dir ] || continue
+	[[ -d "$dir" ]] || continue
 	system_map=$(find_usrmerge_boot System.map "$krel")
-	[ -n "$system_map" ] || continue
-	if opt_debug=1 has_unresolved_symbols "$krel" "/"; then
-	    echo "Warning: /lib/modules/$krel is inconsistent" >&2
-	    echo "Warning: weak-updates symlinks might not be created" >&2
-	fi
-
-	if kmp_is_present $kmp $krel; then
-	    log "Package $kmp does not need to be added to kernel $krel"
-	    run_depmod_build_initrd "$krel" <$tmpdir/basenames-$kmp || \
-		status=1
-	    continue
-	fi
-	local old_kmp=$(previous_version_of_kmp $kmp $krel)
-	if can_replace_kmp "$old_kmp" $kmp $krel; then
-	    remove_kmp_modules "$old_kmp" "$krel"
-	    add_kmp_modules "$kmp" "$krel"
-	    if [ -z "$old_kmp" ]; then
-		log "Package $kmp added to kernel $krel"
-		run_depmod_build_initrd "$krel" <$tmpdir/basenames-$kmp || \
-		    status=1
-	    else
-		log "Package $old_kmp replaced by package $kmp in kernel $krel"
-		cat $tmpdir/basenames-{$old_kmp,$kmp} \
-		| run_depmod_build_initrd "$krel" || status=1
-	    fi
+	[[ $system_map ]] || continue
+	if [[ $WM2_PARALLEL ]]; then
+	    add_kmp_for_krel "$kmp" "$krel" &
+	    PIDS=("${PIDS[@]}" "$!")
 	else
-	    dlog "add_kmp: skipped $kmp"
+	    add_kmp_for_krel "$kmp" "$krel" || status=1
 	fi
     done
+    for pid in "${PIDS[@]}"; do
+	wait "$pid" || status=1
+    done
     dlog "add_kmp: status=$status"
-    return $status
+    return "$status"
+}
+
+remove_kmp_from_krel() {
+    local kmp=$1 krel=$2 status=0
+
+    dlog "remove_kmp: processing $kmp for $krel"
+    if kmp_is_present "$kmp" "$krel"; then
+	local other_found=0 other_kmp
+
+        if [ "$krel" != "$(cat $tmpdir/krel-$kmp)" ]; then
+            remove_kmp_modules "$kmp" "$krel"
+        fi
+
+	while read other_kmp; do
+	    [ "$kmp" != "$other_kmp" ] || continue
+
+	    other_found=1
+	    dlog "remove_kmp: checking other KMP $other_kmp"
+	    if can_replace_kmp "" "$other_kmp" "$krel"; then
+		add_kmp_modules "$other_kmp" "$krel"
+		break
+	    fi
+	done < $tmpdir/kmps
+	if [ -n "$other_kmp" ]; then
+	    log "Package $kmp replaced by package $other_kmp in kernel $krel"
+	    run_depmod "$krel" && \
+		cat $tmpdir/basenames-{$kmp,$other_kmp} \
+		    | build_initrd "$krel" "" "$(may_delay_on_removal "$krel")" || \
+		    status=1
+	else
+	    log "Package $kmp removed from kernel $krel"
+	    if [ $other_found -eq 1 ]; then
+		log "Weak-updates symlinks to no other $kmpshort package could be created"
+	    fi
+	    run_depmod "$krel" && \
+		build_initrd "$krel" "" "$(may_delay_on_removal "$krel")" \
+			     <$tmpdir/basenames-$kmp || \
+		    status=1
+	fi
+    fi
+    return "$status"
 }
 
 remove_kmp() {
     local kmp=$1 kmpshort=${1%-*-*}
     local basename=${kmpshort%-kmp-*} flavor=${kmpshort##*-}
+    local system_map PIDS=() pid
 
     # Find any previous versions of the same kmp
     find_kmps "$basename" "$flavor" || return 1
@@ -645,52 +855,18 @@ remove_kmp() {
         *)
             continue
         esac
-	[ -d $dir ] || continue
+	[[ -d "$dir" ]] || continue
 	system_map=$(find_usrmerge_boot System.map "$krel")
-	[ -n "$system_map" ] || continue
-	dlog "remove_kmp: processing $kmp for $krel"
-	if kmp_is_present $kmp $krel; then
-	    local other_found=0 inconsistent=0
-
-	    if opt_debug=1 has_unresolved_symbols "$krel" "/" \
-			>$tmpdir/unresolved-"$krel" 2>&1; then
-		inconsistent=1
-	    fi
-
-            if [ $krel != "$(cat $tmpdir/krel-$kmp)" ]; then
-                remove_kmp_modules "$kmp" "$krel"
-            fi
-
-	    local other_kmp
-	    while read other_kmp; do
-		[ "$kmp" != "$other_kmp" ] || continue
-
-		other_found=1
-		dlog "remove_kmp: checking other KMP $other_kmp"
-		if can_replace_kmp "" "$other_kmp" "$krel"; then
-		    add_kmp_modules "$other_kmp" "$krel"
-		    break
-		fi
-	    done < $tmpdir/kmps
-	    if [ -n "$other_kmp" ]; then
-		log "Package $kmp replaced by package $other_kmp in kernel $krel"
-		cat $tmpdir/basenames-{$kmp,$other_kmp} \
-		| run_depmod_build_initrd "$krel" || status=1
-	    else
-		log "Package $kmp removed from kernel $krel"
-		if [ $other_found -eq 1 ]; then
-		    log "Weak-updates symlinks to no other $kmpshort package could be created"
-		    if [ $inconsistent -eq 1 ]; then
-			echo "Warning: /lib/modules/$krel was inconsistent before removal of $kmp" >&2
-			[ -s $tmpdir/unresolved-"$krel" ] && \
-			    cat $tmpdir/unresolved-"$krel"
-		    fi
-		fi
-		run_depmod_build_initrd "$krel" <$tmpdir/basenames-$kmp || \
-		    status=1
-	    fi
-	    rm -f $tmpdir/unresolved-"$krel"
+	[[ $system_map ]] || continue
+	if [[ $WM2_PARALLEL ]]; then
+	    remove_kmp_from_krel "$kmp" "$krel" &
+	    PIDS=("${PIDS[@]}" "$!")
+	else
+	    remove_kmp_from_krel "$kmp" "$krel" || status=1
 	fi
+    done
+    for pid in "${PIDS[@]}"; do
+	wait "$pid" || status=1
     done
     dlog "remove_kmp: status=$status"
     return $status
@@ -744,7 +920,7 @@ usage() {
 
 ##############################################################################
 
-save_argv=("$@")
+echo "weak-modules2 startup" >&2
 options=`getopt -o vh --long add-kernel,remove-kernel,add-kmp,remove-kmp \
                       --long add-kernel-modules,remove-kernel-modules \
 		      --long usage,help,verbose,dry-run,debug,logfile: -- "$@"`
@@ -815,7 +991,7 @@ case "$mode" in
     if [ $# -gt 1 ]; then
         err="Too many arguments to $mode"
     fi
-    [ $# -eq 1 ] || set -- $(uname -r)
+    [ $# -eq 1 ] || set -- "$(uname -r)"
     ;;
 *)
     if [ $# -ne 1 ]; then
@@ -844,8 +1020,8 @@ fi
 find_depmod
 find_lsinitrd
 
-tmpdir=$(mktemp -d /var/tmp/${0##*/}.XXXXXX)
-trap "rm -rf $tmpdir" EXIT
+tmpdir="$(mktemp -d /var/tmp/${0##*/}.XXXXXX)"
+trap 'rm -rf "$tmpdir"' EXIT
 
 shopt -s nullglob
 
@@ -869,4 +1045,5 @@ case $mode in
     remove_kmp "$1"
 esac
 
+echo "weak-modules2 finished" >&2
 # vim:shiftwidth=4 softtabstop=4

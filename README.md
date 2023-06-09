@@ -90,11 +90,16 @@ details.
 
 Use the following environment variables:
 
- * WM2_VERBOSE: value from 0 (default, no logging) - 3 (tracing).
+ * `WM2_VERBOSE:` value from 0 (default, no logging) - 3 (tracing).
    the -v/--verbose option increases log level by one.
- * WM2_DEBUG: 0 (default) or 1. Enables verbose output of certain
+ * `WM2_DEBUG`: 0 (default) or 1. Enables verbose output of certain
    commands called by weak-modules2. Equivalent to --debug.
- * WM2_LOGFILE: redirect the output to the given file.
+ * `WM2_LOGFILE`: redirect the output to the given file.
+
+### Other environment variables
+
+ * `WM2_DEPMOD_INC`: set this to a non-empty string to enable the experimental
+   "incremental depmod" feature. This will speed up KMP installations.
 
 ## Kernel scriptlet files
 
