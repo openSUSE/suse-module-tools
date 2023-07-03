@@ -285,6 +285,9 @@ EOF
 	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@"
 	;;
     posttrans)
+	if test -x /usr/lib/module-init-tools/regenerate-initrd-posttrans; then
+	    /bin/bash -c 'set +e; /usr/lib/module-init-tools/regenerate-initrd-posttrans' || script_rc=$?
+	fi
 	;;
     *)
 	echo Unknown scriptlet "$op" >&2
