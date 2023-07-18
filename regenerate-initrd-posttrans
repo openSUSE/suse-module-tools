@@ -50,7 +50,7 @@ for f in "$dir"/*; do
 	rm -f "$f"
 	kver=${f##*/}
 	[ -d /lib/modules/"$kver" ] || {
-	    echo $0: skippping invalid kernel version "$dir/$kver"
+	    echo $0: skipping invalid kernel version "$dir/$kver"
 	    continue
 	}
 	if ! "$DRACUT" -f --kver "$kver"; then
