@@ -8,7 +8,6 @@ release=""
 kernelrelease=""
 flavor=""
 variant=""
-usrmerged="0"
 image=""
 certs=""
 
@@ -41,7 +40,7 @@ while true ; do
 	    ;;
 
 	--usrmerged)
-	    usrmerged="$2"
+	    # ignored for legacy compat reasons
 	    shift
 	    ;;
 	--image)
@@ -62,7 +61,7 @@ done
 wm2=/usr/lib/module-init-tools/weak-modules2
 nvr="$name"-"$version"-"$release"
 
-if [ "$usrmerged" -ne 0 ] ; then
+if [ -L /lib ] ; then
     modules_dir=/usr/lib/modules/$kernelrelease-$flavor
     system_map=${modules_dir}/System.map
 else
@@ -93,7 +92,7 @@ message_install_bl () {
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
     echo "$op" name: "$name" version: "$version" release: "$release" \
     kernelrelease: "$kernelrelease" flavor: "$flavor" variant: "$variant" \
-    usrmerged: "$usrmerged" image: "$image" certs: "$certs" -- "$@" >&2
+   image: "$image" certs: "$certs" -- "$@" >&2
 
 script_rc=0
 
@@ -174,7 +173,7 @@ EOF
 	    ln -s ${x##*/}-"$kernelrelease"-"$flavor" $x
 	done
 
-	if [ "$usrmerged" -ne 0 ] ; then
+	if [ -L /lib ] ; then
 	    # compat stuff for /boot.
 	    # if /boot and /usr are not speparate partitions we can just link
 	    # the kernel there to save space. Otherwise copy.
