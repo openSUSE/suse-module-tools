@@ -90,6 +90,37 @@ message_install_bl () {
     echo "available bootloader for your platform (e.g. grub, lilo, zipl, ...)."
 }
 
+update_bootloader() {
+    if [ ! -e /.buildenv ] ; then
+	if [ -f /etc/fstab ] ; then
+	    # only run the bootloader if the usual bootloader configuration
+	    # files are there -- this is different on every architecture
+	    initrd=initrd-"$kernelrelease"-"$flavor"
+	    if [ "$flavor" = rt ]; then
+		default=force-default
+	    fi
+	    # Note: the 2nd condition is for removing the bootloader
+	    # entry for an uninstalled kernel.
+	    if [ -e /boot/$initrd -o ! -e "$modules_dir" ]; then
+		[ -e /boot/$initrd ] || initrd=
+		if [ -x /usr/lib/bootloader/bootloader_entry ]; then
+		    /usr/lib/bootloader/bootloader_entry \
+			add \
+			"$flavor" \
+			"$kernelrelease"-"$flavor" \
+			"$image"-"$kernelrelease"-"$flavor" \
+			$initrd \
+			$default || script_rc=$?
+		else
+		    message_install_bl
+		fi
+	    fi
+	else
+	    message_install_bl
+	fi
+    fi
+}
+
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
     echo "$op" name: "$name" version: "$version" release: "$release" \
     kernelrelease: "$kernelrelease" flavor: "$flavor" variant: "$variant" \
@@ -205,35 +236,7 @@ EOF
 	    script_rc=1
 	fi
 
-	if [ ! -e /.buildenv ] ; then
-	    if [ -f /etc/fstab ] ; then
-		# only run the bootloader if the usual bootloader configuration
-		# files are there -- this is different on every architecture
-		initrd=initrd-"$kernelrelease"-"$flavor"
-		if [ "$flavor" = rt ]; then
-		    default=force-default
-		fi
-		# Note: the 2nd condition is for removing the bootloader
-		# entry for an uninstalled kernel.
-		if [ -e /boot/$initrd -o ! -e "$modules_dir" ]; then
-		    [ -e /boot/$initrd ] || initrd=
-		    if [ -x /usr/lib/bootloader/bootloader_entry ]; then
-			/usr/lib/bootloader/bootloader_entry \
-			    add \
-			    "$flavor" \
-			    "$kernelrelease"-"$flavor" \
-			    "$image"-"$kernelrelease"-"$flavor" \
-			    $initrd \
-			    $default || script_rc=$?
-		    else
-			message_install_bl
-		    fi
-		fi
-	    else
-		message_install_bl
-	    fi
-	fi
-
+	[ "$INITRD_IN_POSTTRANS" ] || update_bootloader
 	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
 	;;
     preun)
@@ -275,6 +278,7 @@ EOF
 	if test -x /usr/lib/module-init-tools/regenerate-initrd-posttrans; then
 	    /bin/bash -c 'set +e; /usr/lib/module-init-tools/regenerate-initrd-posttrans' || script_rc=$?
 	fi
+	[ ! "$INITRD_IN_POSTTRANS" ] || update_bootloader
 	;;
     *)
 	echo Unknown scriptlet "$op" >&2
