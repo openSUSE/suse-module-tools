@@ -7,6 +7,7 @@ version=""
 release=""
 kernelrelease=""
 flavor=""
+usrmerged=""
 
 while true ; do
     case $1 in
@@ -32,7 +33,7 @@ while true ; do
 	    shift
 	    ;;
 	--usrmerged)
-	    # ignored for legacy compat reasons
+	    usrmerged="$2"
 	    shift
 	    ;;
 
@@ -52,7 +53,7 @@ run_wm2() {
 
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
     echo KMP "$op" name: "$name" version: "$version" release: "$release" \
-    kernelrelease: "$kernelrelease" flavor: "$flavor" -- "$@" >&2
+    kernelrelease: "$kernelrelease" flavor: "$flavor" \ usrmerged: "$usrmerged" -- "$@" >&2
 
 script_rc=0
 
