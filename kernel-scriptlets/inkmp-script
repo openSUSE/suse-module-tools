@@ -61,13 +61,8 @@ done
 wm2=/usr/lib/module-init-tools/weak-modules2
 nvr="$name"-"$version"-"$release"
 
-if [ -L /lib ] ; then
-    modules_dir=/usr/lib/modules/$kernelrelease-$flavor
-    system_map=${modules_dir}/System.map
-else
-    modules_dir=/lib/modules/$kernelrelease-$flavor
-    system_map=/boot/System.map-$kernelrelease-$flavor
-fi
+modules_dir=/usr/lib/modules/$kernelrelease-$flavor
+system_map=${modules_dir}/System.map
 
 run_wm2() {
     [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo wm2 "$@" >&2
