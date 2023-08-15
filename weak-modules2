@@ -195,16 +195,10 @@ create_temporary_modules_dir() {
 
 # Check for unresolved symbols
 has_unresolved_symbols() {
-    local krel=$1 basedir=$2 output status args sym_errors _f
+    local krel=$1 basedir=$2 output status args sym_errors
 
-    if [ ! -e $tmpdir/symvers-$krel ]; then
-	for _f in /boot/symvers-$krel.gz /usr/lib/modules/$krel/symvers.gz; do
-	    if [ -e $_f ]; then
-		dlog "has_unresolved_symbols: found $_f"
-		zcat $_f >$tmpdir/symvers-$krel
-		break
-	    fi
-	done
+    if [ ! -e $tmpdir/symvers-$krel -a -e /boot/symvers-$krel.gz ]; then
+	zcat /boot/symvers-$krel.gz > $tmpdir/symvers-$krel
     fi
     if [ -e $tmpdir/symvers-$krel ]; then
 	args=(-E $tmpdir/symvers-$krel)

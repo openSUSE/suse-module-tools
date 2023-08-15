@@ -7,13 +7,6 @@ workflow:
     - configure_repositories:
         project: home:mwilck
         repositories:
-          - name: openSUSE_Tumbleweed
-            paths:
-              - target_project: openSUSE:Factory
-                target_repository: snapshot
-            architectures:
-              - x86_64
-              - i586
           - name: openSUSE_Leap_15.4
             paths:
               - target_project: openSUSE:Leap:15.4
