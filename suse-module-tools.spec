@@ -224,7 +224,6 @@ exit 0
 %dir /usr/lib/module-init-tools
 /usr/lib/module-init-tools/driver-check.sh
 /usr/lib/module-init-tools/lsinitrd-quick
-/usr/lib/module-init-tools/regenerate-initrd-posttrans
 /usr/lib/module-init-tools/unblacklist
 /usr/lib/module-init-tools/weak-modules2
 %{_unitdir}/*.service
@@ -237,5 +236,6 @@ exit 0
 #
 %files scriptlets
 /usr/lib/module-init-tools/kernel-scriptlets
+/usr/lib/module-init-tools/regenerate-initrd-posttrans
 
 %changelog
