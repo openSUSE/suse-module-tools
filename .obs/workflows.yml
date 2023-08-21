@@ -4,3 +4,26 @@ workflow:
          source_project: home:mwilck:suse-module-tools
          source_package: suse-module-tools
          target_project: home:mwilck:suse-module-tools
+    - configure_repositories:
+        project: home:mwilck
+        repositories:
+          - name: SLE_15_SP5
+            paths:
+              - target_project: SUSE:SLE-15-SP5:GA
+                target_repository: pool
+            architectures:
+              - x86_64
+              - s390x
+              - ppc64le
+              - aarch64
+          - name: SLE_15_SP4
+            paths:
+              - target_project: SUSE:SLE-15-SP4:GA
+                target_repository: pool
+            architectures:
+              - x86_64
+              - s390x
+              - ppc64le
+              - aarch64
+  filters:
+    event: pull_request
