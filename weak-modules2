@@ -2,11 +2,11 @@
 
 ##############################################################################
 # How it works:
-# * Kernels install modules below /lib/modules/$krel/kernel/.
-# * KMPs install modules below /lib/modules/$krel/updates/ or .../extra/.
+# * Kernels install modules below /usr/lib/modules/$krel/kernel/.
+# * KMPs install modules below /usr/lib/modules/$krel/updates/ or .../extra/.
 # * Symbolic links to modules of compatible KMPs are created under
-#   /lib/modules/$krel/weak-updates/{updates,extra}/... (the original path
-#   below /lib/modules/$other_krel is used).
+#   /usr/lib/modules/$krel/weak-updates/{updates,extra}/... (the original path
+#   below /usr/lib/modules/$other_krel is used).
 # * Depmod searches the directories in this order: updates/, extra/,
 #   weak-updates/, kernel/ (see /etd/depmod.conf or
 #   /etc/depmod.d/00-system.conf for details).
@@ -45,7 +45,7 @@
 # $kmpshort: name of a kmp, e.g kqemu-kmp-default
 # $basename: portion of $kmp up to the "-kmp-" part, e.g kqemu
 # $flavor: flavor of a kmp or kernel, e.g default
-# $krel: kernel version, as in /lib/modules/$krel
+# $krel: kernel version, as in /usr/lib/modules/$krel
 # $module: full path to a module below updates/
 # $symlink: full path to a module symlink below weak-updates/
 #
@@ -139,7 +139,7 @@ strip_mod_extensions() {
 symlink_to_module() {
     local module=$1 krel=$2
 
-    echo /lib/modules/$krel/weak-updates/${module#/lib/modules/*/}
+    echo /usr/lib/modules/$krel/weak-updates/${module#/usr/lib/modules/*/}
 }
 
 # Is a kmp already present in or linked to from this kernel?
@@ -165,7 +165,7 @@ kmp_is_present() {
     return $res
 }
 
-# Add the modules of a kmp to /lib/modules/$krel
+# Add the modules of a kmp to /usr/lib/modules/$krel
 add_kmp_modules() {
     local kmp=$1 krel=$2 basedir=$3
 
@@ -180,7 +180,7 @@ add_kmp_modules() {
     done < $tmpdir/modules-$kmp
 }
 
-# Remove the modules of a kmp from /lib/modules/$krel
+# Remove the modules of a kmp from /usr/lib/modules/$krel
 remove_kmp_modules() {
     local kmp=$1 krel=$2 basedir=$3
 
@@ -194,9 +194,9 @@ remove_kmp_modules() {
     done < $tmpdir/modules-$kmp
 }
 
-# Create a temporary working copy of /lib/modules/$1
+# Create a temporary working copy of /usr/lib/modules/$1
 create_temporary_modules_dir() {
-    local modules_dir=/lib/modules/$1 basedir=$2
+    local modules_dir=/usr/lib/modules/$1 basedir=$2
     local opt_v=${opt_debug:+-v}
 
     mkdir -p $opt_v $basedir$modules_dir/weak-updates
@@ -252,7 +252,7 @@ has_unresolved_symbols() {
 basenames_are_unique() {
     local kmp=$1 krel=$2 basedir=$3 dir
 
-    for dir in $basedir/lib/modules/$krel/{weak-updates,updates,extra}/; do
+    for dir in $basedir/usr/lib/modules/$krel/{weak-updates,updates,extra}/; do
         if [ ! -d "$dir" ]; then
             continue
         fi
@@ -273,7 +273,7 @@ __can_replace_kmp() {
     local old_kmp=$1 new_kmp=$2 krel=$3
 
     local basedir=$tmpdir/$krel
-    local weak_updates=/lib/modules/$krel/weak-updates/
+    local weak_updates=/usr/lib/modules/$krel/weak-updates/
 
     [ -d "$basedir" ] || \
 	create_temporary_modules_dir "$krel" "$basedir"
@@ -305,7 +305,7 @@ check_kmp() {
     local kmp=$1
 
     # Make sure all modules are for the same kernel
-    set -- $(sed -re 's:^/lib/modules/([^/]+)/.*:\1:' \
+    set -- $(sed -re 's:^/usr/lib/modules/([^/]+)/.*:\1:' \
 		 $tmpdir/modules-$kmp \
 	     | sort -u)
     if [ $# -ne 1 ]; then
@@ -317,7 +317,7 @@ check_kmp() {
     dlog "check_kmp: $kmp contains modules for $1"
 
     # Make sure none of the modules are in kernel/ or weak-updates/
-    if grep -qE -e '^/lib/modules/[^/]+/(kernel|weak-updates)/' \
+    if grep -qE -e '^/usr/lib/modules/[^/]+/(kernel|weak-updates)/' \
 	    $tmpdir/modules-$kmp; then
 	echo "Error: package $kmp must not install modules into " \
 	     "kernel/ or weak-updates/" >&2
@@ -342,7 +342,7 @@ find_kmps() {
 	    continue
 	fi
 	rpm -ql --nodigest --nosignature "$kmp" \
-	    | sed -nr 's:^(/usr)?(/lib/modules/[^/]+/.+\.ko)(\.[gx]z|\.zst)?$:\2\3:p' \
+	    | grep -Ee '^/usr/lib/modules/[^/]+/.+\.ko(\.[gx]z|\.zst)?$' \
 	    > $tmpdir/modules-$kmp
 	if [ $? != 0 ]; then
 	    echo "WARNING: $kmp does not contain any kernel modules" >&2
@@ -392,7 +392,7 @@ previous_version_of_kmp() {
 
 get_initrd_basenames() {
     $LSINITRD /boot/initrd-$1 | \
-	sed -rn 's:.*\<lib/modules/.*/::p' | \
+	sed -rn 's:.*\<usr/lib/modules/.*/::p' | \
 	strip_mod_extensions
 
     INITRD_MODULES=
@@ -455,7 +455,7 @@ run_depmod_build_initrd() {
     local status=0
     local system_map
 
-    if [ -d /lib/modules/$krel ]; then
+    if [ -d /usr/lib/modules/$krel ]; then
 	system_map=$(find_usrmerge_boot System.map "$krel")
 	if [ -n "$system_map" ]; then
 	   doit "$DEPMOD" -F "$system_map" -ae "$krel" || return 1
@@ -528,7 +528,7 @@ kernel_changed() {
 	dlog "kernel_changed: kernel removed"
 	return 0
     fi
-    if [ ! -d /lib/modules/$krel ]; then
+    if [ ! -d /usr/lib/modules/$krel ]; then
 	# a kernel without modules - rebuild initrd nevertheless (to mount the
 	# root fs, etc).
 	dlog "kernel_changed: kernel without modules"
@@ -548,7 +548,7 @@ add_kernel() {
 remove_kernel() {
     local krel=$1
 
-    local dir=/lib/modules/$krel
+    local dir=/usr/lib/modules/$krel
     if [ -d $dir/weak-updates ]; then
 	rm -rf $dir/weak-updates
     fi
@@ -580,8 +580,8 @@ add_kmp() {
     find_kmps "$basename" "$flavor" || return 1
 
     local dir krel status
-    for dir in /lib/modules/*; do
-	krel=${dir#/lib/modules/}
+    for dir in /usr/lib/modules/*; do
+	krel=${dir#/usr/lib/modules/}
         case "$krel" in
         *-$flavor)
             ;;
@@ -593,7 +593,7 @@ add_kmp() {
 	system_map=$(find_usrmerge_boot System.map "$krel")
 	[ -n "$system_map" ] || continue
 	if opt_debug=1 has_unresolved_symbols "$krel" "/"; then
-	    echo "Warning: /lib/modules/$krel is inconsistent" >&2
+	    echo "Warning: /usr/lib/modules/$krel is inconsistent" >&2
 	    echo "Warning: weak-updates symlinks might not be created" >&2
 	fi
 
@@ -633,12 +633,12 @@ remove_kmp() {
 
     # Read the list of module names from standard input
     # (This kmp may already have been removed!)
-    sed 's:^/usr::' > $tmpdir/modules-$kmp
+    cat > $tmpdir/modules-$kmp
     check_kmp "$kmp" || return 1
 
     local dir krel status system_map
-    for dir in /lib/modules/*; do
-	krel=${dir#/lib/modules/}
+    for dir in /usr/lib/modules/*; do
+	krel=${dir#/usr/lib/modules/}
         case "$krel" in
         *-$flavor)
             ;;
@@ -681,7 +681,7 @@ remove_kmp() {
 		if [ $other_found -eq 1 ]; then
 		    log "Weak-updates symlinks to no other $kmpshort package could be created"
 		    if [ $inconsistent -eq 1 ]; then
-			echo "Warning: /lib/modules/$krel was inconsistent before removal of $kmp" >&2
+			echo "Warning: /usr/lib/modules/$krel was inconsistent before removal of $kmp" >&2
 			[ -s $tmpdir/unresolved-"$krel" ] && \
 			    cat $tmpdir/unresolved-"$krel"
 		    fi
