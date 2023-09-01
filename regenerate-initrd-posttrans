@@ -2,9 +2,9 @@
 #
 # Packages that install kernels or kernel-modules create a flag
 #
-#   /run/regenerate-initrd/<kernel image>
-# 
-# to have the initrd for <kernel image> generated, or
+#   /run/regenerate-initrd/<kernel version>
+#
+# to have the initrd for <kernel version> generated, or
 #
 #   /run/regenerate-initrd/all
 #
