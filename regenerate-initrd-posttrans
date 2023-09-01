@@ -49,6 +49,11 @@ for f in "$dir"/*; do
 	esac
 	rm -f "$f"
 	kver=${f##*/}
+	case "$kver" in
+	    vmlinuz-*|image-*|vmlinux-*|linux-*|bzImage-*|uImage-*|Image-*|zImage-*)
+		kver=${kver#*-}
+		;;
+	esac
 	[ -d /lib/modules/"$kver" ] || {
 	    echo $0: skipping invalid kernel version "$dir/$kver"
 	    continue
