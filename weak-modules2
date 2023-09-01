@@ -443,7 +443,7 @@ run_depmod_build_initrd() {
 	if [ -n "$image" ]; then
 	    if test -n "$INITRD_IN_POSTTRANS"; then
 		mkdir -p /run/regenerate-initrd
-		doit touch /run/regenerate-initrd/$krel
+		doit touch /run/regenerate-initrd/$image-$krel
 	    else
 		doit "$DRACUT" -f /boot/initrd-$krel $krel
 		status=$?

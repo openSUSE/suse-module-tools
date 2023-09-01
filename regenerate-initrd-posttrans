@@ -47,12 +47,13 @@ for f in "$dir"/*; do
 	    "$dir/*")
 		[ -e "$f" ] || break;;
 	esac
-	rm -f "$f"
-	kver=${f##*/}
-	[ -d /lib/modules/"$kver" ] || {
-	    echo $0: skipping invalid kernel version "$dir/$kver"
-	    continue
-	}
+	rm "$f"
+	image=${f##*/}
+	kver=${image#*-}
+	if ! test -e "/boot/$image"; then
+		echo "$0: /boot/$image does not exist, initrd won't be generated"
+		continue
+	fi
 	if ! "$DRACUT" -f --kver "$kver"; then
 		err=$?
 	fi
