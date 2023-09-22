@@ -19,8 +19,8 @@
 Name:           suse-module-tools
 Version:        12.11
 Release:        0
-Requires:       /sbin/depmod
-Requires:       /sbin/mkinitrd
+Requires:       kmod-compat
+Requires:       dracut
 Requires:       findutils
 Requires:       gzip
 # for grepping /etc/SUSE-release
@@ -29,7 +29,7 @@ PreReq:         grep
 # in post, it also requires getopt (coreutils) and sed
 PreReq:         coreutils rpm
 # XXX: this should be nm OR eu-nm, the script works with both
-PreReq:         /usr/bin/eu-nm /bin/sed
+PreReq:         elfutils sed
 Summary:        Configuration for module loading and SUSE-specific utilities for KMPs
 License:        GPL-2.0-or-later
 Group:          System/Base
