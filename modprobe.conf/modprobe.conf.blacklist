@@ -194,3 +194,6 @@ blacklist chsc_sch
 # very few applications require the data, blacklist the module by default
 # (bnc#974373)
 blacklist acpi_power_meter
+# Module is affected by bsc#1210335 (CVE-2023-1829), prevent loading it unwittingly
+blacklist cls_tcindex
+
