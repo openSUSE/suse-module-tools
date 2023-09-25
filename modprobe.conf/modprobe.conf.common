@@ -95,4 +95,7 @@ softdep uas pre: usb_storage
 # SUSE INITRD: csiostor REQUIRES cxgb4
 softdep csiostor pre: cxgb4
 
+# Module is affected by bsc#1210335 (CVE-2023-1829), prevent loading it unwittingly
+blacklist cls_tcindex
+
 # end of common part for modprobe.conf
