@@ -390,10 +390,70 @@ previous_version_of_kmp() {
     return $res
 }
 
-get_initrd_basenames() {
-    $LSINITRD /boot/initrd-$1 | \
-	sed -rn 's:.*\<usr/lib/modules/.*/::p' | \
+# Create list of dracut configuration files to read, taking into
+# account priorities of the user and built-in configuration.
+# Copied from dracut.sh as of dracut 059 (GPL-2.0-or-later)
+dropindirs_sort() {
+    local suffix=$1
+    shift
+    local -a files
+    local f d
+
+    for d in "$@"; do
+        for i in "$d/"*"$suffix"; do
+            if [[ -e $i ]]; then
+                printf "%s\n" "${i##*/}"
+            fi
+        done
+    done | sort -Vu | {
+        readarray -t files
+
+        for f in "${files[@]}"; do
+            for d in "$@"; do
+                if [[ -e "$d/$f" ]]; then
+                    printf "%s\n" "$d/$f"
+                    continue 2
+                fi
+            done
+        done
+    }
+}
+
+get_current_basenames() {
+    $LSINITRD /boot/initrd-$1 |
+	sed -rn 's:.*\<usr/lib/modules/.*/::p' |
 	strip_mod_extensions
+}
+
+DRACUT_CONFFILE=/etc/dracut.conf
+DRACUT_CONFDIR=/etc/dracut.conf.d
+DRACUT_BUILTIN_CONFDIR=/usr/lib/dracut/dracut.conf.d
+GET_DRACUT_DRIVERS=/usr/lib/module-init-tools/get_dracut_drivers
+
+get_initrd_basenames() {
+    local setpriv=$(command -v setpriv)
+    local conf= cf
+
+    [[ -x "$GET_DRACUT_DRIVERS" && "$setpriv" ]] || {
+	echo "$0: unable to parse dracut configuration, skipping it" >&2
+	get_current_basenames "$1"
+	return
+    }
+
+    [[ ! -f "$DRACUT_CONFFILE" ]] ||
+	conf="$(cat "$DRACUT_CONFFILE")"
+
+    # Assemble the content of the dracut configuration files.
+    # Make sure to put a newline between subsequent conf file contents.
+    for cf in $(dropindirs_sort .conf "$DRACUT_CONFDIR" "$DRACUT_BUILTIN_CONFDIR"); do
+	conf="$conf
+$(cat "$cf")"
+    done
+
+    # run get_dracut_drivers with reduced privileges
+    get_current_basenames "$1" |
+	"$setpriv" --reuid=nobody --regid=nobody --clear-groups --inh-caps=-all \
+		   "$GET_DRACUT_DRIVERS" "$conf"
 }
 
 # test if rebuilding initrd is needed for $krel.

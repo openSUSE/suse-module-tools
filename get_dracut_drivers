@@ -1,0 +1,45 @@
+#! /bin/bash
+# This code reads a list of modules from stdin, and takes the
+# content of the dracut configuration files as argv[1].
+# It evaluates the dracut configuration to set the module-related
+# configuration variables add_drivers etc.
+# It appends the gathered module names to the input, and
+# filters the result using the regex from the omit_drivers variable.
+# The code is meant to be executed with decreased privileges,
+# in order to avoid sourcing arbitrary scripts as root.
+
+[[ "${WM2_VERBOSE:-0}" -le 2 ]] || set -x
+
+ME=${0##*/}
+add_drivers=""
+force_drivers=""
+omit_drivers=""
+drivers=""
+
+eval "$1" ||
+    echo "$0: error evaluating dracut configuration" >&2
+
+# sanitize omit_drivers; code similar to dracut.sh 059
+# filter out empty lines; also handle the case where omit_drivers is empty
+omit_drivers_corrected="^[[:space:]]*$"
+for d in $omit_drivers; do
+	[[ " $drivers $add_drivers " == *\ $d\ * ]] && continue
+	[[ " $drivers $force_drivers " == *\ $d\ * ]] && continue
+	omit_drivers_corrected+="|$d"
+done
+
+if [[ "${WM2_VERBOSE:-0}" -gt 0 ]]; then
+    echo "$ME: drivers='$drivers'" >&2
+    echo "$ME: add_drivers='$add_drivers'" >&2
+    echo "$ME: force_drivers='$force_drivers'" >&2
+    echo "$ME: omit_drivers='$omit_drivers'" >&2
+    echo "$ME: omit_drivers_corrected='$omit_drivers_corrected'" >&2
+fi
+
+# The sed command below converts space-separated lists to newline-separated
+{
+    cat
+    echo $drivers $add_drivers $force_drivers
+} |
+    sed -E 's/[[:space:]]+/\n/g;s/\n*$//' |
+    grep -Ev "$omit_drivers_corrected"
