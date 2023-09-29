@@ -394,10 +394,6 @@ get_initrd_basenames() {
     $LSINITRD /boot/initrd-$1 | \
 	sed -rn 's:.*\<usr/lib/modules/.*/::p' | \
 	strip_mod_extensions
-
-    INITRD_MODULES=
-    . /etc/sysconfig/kernel &>/dev/null
-    printf '%s\n' $INITRD_MODULES
 }
 
 # test if rebuilding initrd is needed for $krel.
