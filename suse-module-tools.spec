@@ -142,7 +142,10 @@ echo 'Wants=boot-sysctl.service' >>"%{buildroot}%{sysctl_dropin}"
 %endif
 
 install -d -m 755 "%{buildroot}%{_modulesloaddir}"
-install -pm 644 -t "%{buildroot}%{_modulesloaddir}" modules-load.d/*.conf
+for _x in modules-load.d/*.conf; do
+    [ -e "$_x" ] || continue
+    install -pm 644 -t "%{buildroot}%{_modulesloaddir}" "$_x"
+done
 
 %ifarch ppc64 ppc64le
 install -d -m 755 %{buildroot}/usr/lib/systemd/system-generators
