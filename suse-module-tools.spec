@@ -127,7 +127,6 @@ for i in "pre" "preun" "post" "posttrans" "postun" ; do
 done
 
 install -d -m 755 "%{buildroot}%{_prefix}/bin"
-install -pm 755 kmp-install "%{buildroot}%{_bindir}/"
 
 # systemd service(s) to load kernel-specific sysctl settings
 install -d -m 755 "%{buildroot}%{_unitdir}/systemd-sysctl.service.d"
@@ -223,7 +222,6 @@ exit 0
 %dir %{_sysconfdir}/modprobe.d
 %{depmod_dir}
 %dir %{_sysconfdir}/depmod.d
-%{_bindir}/kmp-install
 %dir /usr/lib/module-init-tools
 /usr/lib/module-init-tools/driver-check.sh
 /usr/lib/module-init-tools/lsinitrd-quick
