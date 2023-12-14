@@ -21,7 +21,7 @@
 %define modules_load_dir /usr/lib/modules-load.d
 
 # List of legacy file systems to be blacklisted by default
-%global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs freevxfs hfs hpfs jfs minix nilfs2 ntfs omfs qnx4 qnx6 sysv ufs
+%global fs_blacklist adfs affs bfs befs cramfs efs erofs exofs f2fs freevxfs hfs hfsplus hpfs jffs2 jfs kafs minix nilfs2 ntfs ntfs3 omfs orangefs pstore qnx4 qnx6 romfs sysv ufs zonefs
 
 %if 0%{?sle_version} >= 120200 && 0%{?sle_version} < 150000
 %global softdep_br_netfilter 1
