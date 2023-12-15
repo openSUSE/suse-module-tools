@@ -184,9 +184,13 @@ EOF
 	fi
 
 	for x in /boot/"$image" /boot/initrd; do
-	    rm -f $x
-	    ln -s ${x##*/}-"$kernelrelease"-"$flavor" $x
+	    rm -f "$x"
+	    [ ! -e "${x##*/}-$kernelrelease-$flavor" ] ||
+		ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
 	done
+	rm -f /boot/.vmlinuz.hmac
+	[ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
+	    ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
 
 	if [ "$usrmerged" -ne 0 ] ; then
 	    # compat stuff for /boot.
