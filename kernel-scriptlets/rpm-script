@@ -195,9 +195,13 @@ EOF
 	fi
 
 	for x in /boot/"$image" /boot/initrd; do
-	    rm -f $x
-	    ln -s ${x##*/}-"$kernelrelease"-"$flavor" $x
+	    rm -f "$x"
+	    [ ! -e "${x##*/}-$kernelrelease-$flavor" ] ||
+		ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
 	done
+	rm -f /boot/.vmlinuz.hmac
+	[ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
+	    ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
 
 	# compat stuff for /boot.
 	# if /boot and /usr are not speparate partitions we can just link
