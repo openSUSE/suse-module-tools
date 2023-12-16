@@ -22,17 +22,20 @@ in the respective directory under `/etc`. E.g. to mask
 
 ## Blacklisted file systems
 
-In the Linux kernel, file system types are implemented as kernel
-modules. While many of these file systems are well maintained, some of the
-older and less frequently used ones are not. This poses a security risk,
-because maliciously crafted file system images might open security holes when
-mounted either automatically or by an inadvertent user. 
+In the Linux kernel, file system types are implemented as kernel modules. While
+many of these file systems are well maintained, some of the older and less
+frequently used ones are not. Others are actively maintained upstream but SUSE
+kernel developers do not not actively review and include fixes for them in the
+kernel sources released in openSUSE and SUSE Enterprise Linux. This poses a
+security risk, because maliciously crafted file system images might open
+security holes when mounted either automatically or by an inadvertent user.
 
-These file systems are therefore **blacklisted** by default under openSUSE and
-SUSE Enterprise Linux. This means that the on-demand loading of file system
-modules at mount time is disabled. Blacklisting is accomplished by placing
-configuration files called `60-blacklist_fs-$SOME_FS.conf` under
-`/lib/modprobe.d`. The current list of blacklisted filesystems is:
+Filesystems not actively maintained by SUSE kernel developers are therefore
+**blacklisted** by default under openSUSE and SUSE Enterprise Linux. This means
+that the on-demand loading of file system modules at mount time is disabled.
+Blacklisting is accomplished by placing configuration files called
+`60-blacklist_fs-$SOME_FS.conf` under `/lib/modprobe.d`. The current list of
+blacklisted filesystems is:
 
     @FS_BLACKLIST@ # will be filled from spec file during package build
 
