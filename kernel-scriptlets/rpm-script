@@ -194,15 +194,6 @@ EOF
 	    trigger_purge_kernels || script_rc=$?
 	fi
 
-	for x in /boot/"$image" /boot/initrd; do
-	    rm -f "$x"
-	    [ ! -e "${x}-$kernelrelease-$flavor" ] ||
-		ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
-	done
-	rm -f /boot/.vmlinuz.hmac
-	[ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
-	    ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
-
 	# compat stuff for /boot.
 	# if /boot and /usr are not speparate partitions we can just link
 	# the kernel there to save space. Otherwise copy.
@@ -222,6 +213,15 @@ EOF
 		fi
 	    fi
 	done
+
+	for x in /boot/"$image" /boot/initrd; do
+	    rm -f "$x"
+	    [ ! -e "${x}-$kernelrelease-$flavor" ] ||
+		ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
+	done
+	rm -f /boot/.vmlinuz.hmac
+	[ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
+	    ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
 
 	# Add symlinks of compatible modules to /lib/modules/$krel/weak-updates/,
 	# run depmod and dracut
