@@ -235,6 +235,9 @@ EOF
 	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
 	;;
     preun)
+	[ ! -L /boot/.vmlinuz.hmac ] ||
+	    [ "$(readlink /boot/.vmlinuz.hmac)" != ".vmlinuz-$kernelrelease-$flavor.hmac" ] ||
+	    rm -f /boot/.vmlinuz.hmac
 	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
 	;;
     postun)
