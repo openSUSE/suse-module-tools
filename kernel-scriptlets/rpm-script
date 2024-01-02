@@ -192,7 +192,6 @@ EOF
 	    else
 		copy_or_link="ln -sf"
 	    fi
-	    # XXX: need to fix suse-module-tools for sysctl.conf and System.map
 	    for x in "$image" sysctl.conf System.map config; do
 		if [ ! -e /boot/$x-"$kernelrelease"-"$flavor" ]; then
 		    $copy_or_link .."$modules_dir"/$x /boot/$x-"$kernelrelease"-"$flavor" || script_rc=$?
