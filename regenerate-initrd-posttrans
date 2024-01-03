@@ -38,7 +38,8 @@ done
 
 if test -e "$dir/all"; then
 	rm "$dir"/*
-	"$DRACUT" -f --regenerate-all
+	[ "$SKIP_REGENERATE_INITRD_ALL" = 1 ] ||
+		"$DRACUT" -f --regenerate-all
 	exit
 fi
 err=0
