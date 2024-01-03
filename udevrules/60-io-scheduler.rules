@@ -11,6 +11,7 @@
 SUBSYSTEM!="block", GOTO="scheduler_end"
 ACTION!="add|change", GOTO="scheduler_end"
 ENV{DEVTYPE}!="disk", GOTO="scheduler_end"
+TEST!="%S%p/queue/scheduler", GOTO="scheduler_end"
 
 # For dm devices, the relevant events are "change" events, see 10-dm.rules
 ACTION!="change", KERNEL=="dm-*", GOTO="scheduler_end"
