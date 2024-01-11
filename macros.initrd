@@ -3,9 +3,23 @@
 # regenerated
 # See also fate#313506
 
+# mkdir is part of the coreutils package. When the post scriptlet of some
+# package using regenerate_initrd_post is run, the mkdir command may be
+# unavailable. This is non-fatal, because in all cases that matter for initrd
+# generation, coreutils will be part of the same transaction and will trigger
+# an initrd rebuild later. See boo#1217775.
+# 
+# Anyway, packages can use the regenerate_initrd_requires macro below to make
+# sure mkdir is available in their post scriptlet. Use if this macro is not
+# mandatory.
+
+%regenerate_initrd_requires \
+Requires(post): /usr/bin/mkdir \
+%nil
+
 %regenerate_initrd_post \
-	mkdir -p /run/regenerate-initrd/ \
-	touch /run/regenerate-initrd/all \
+        ! command -v mkdir >/dev/null || mkdir -p /run/regenerate-initrd/; \
+	[ ! -d /run/regenerate-initrd ] || > /run/regenerate-initrd/all; \
 	%nil
 
 %regenerate_initrd_posttrans \
