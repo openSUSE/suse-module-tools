@@ -430,6 +430,13 @@ DRACUT_CONFDIR=/etc/dracut.conf.d
 DRACUT_BUILTIN_CONFDIR=/usr/lib/dracut/dracut.conf.d
 GET_DRACUT_DRIVERS=/usr/lib/module-init-tools/get_dracut_drivers
 
+# Recreate static nodes if modules for the running kernel have been (un)installed
+update_static_nodes() {
+    [[ "$(uname -r)" != "$1" ]] || \
+	doit systemctl --no-block restart \
+	     kmod-static-nodes.service systemd-tmpfiles-setup-dev.service
+}
+
 get_initrd_basenames() {
     local setpriv=$(command -v setpriv)
     local conf= cf
@@ -514,7 +521,8 @@ run_depmod_build_initrd() {
     if [ -d /usr/lib/modules/$krel ]; then
 	system_map=$(find_usrmerge_boot System.map "$krel")
 	if [ -n "$system_map" ]; then
-	   doit "$DEPMOD" -F "$system_map" -ae "$krel" || return 1
+	    doit "$DEPMOD" -F "$system_map" -ae "$krel" || return 1
+	    update_static_nodes "$krel"
 	fi
     fi
     if needs_initrd $krel; then
