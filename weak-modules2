@@ -461,6 +461,9 @@ $(cat "$cf")"
 needs_initrd() {
     local krel=$1
 
+    # XXX: need to implement that
+    [ -z "$is_sdbootutil" ] || return 1
+
     # Don't generate an initrd for kdump here. It's done automatically with mkdumprd when
     # /etc/init.d/boot.kdump is called to load the kdump kernel. See mkdumprd(8) why
     # it is done this way.

@@ -58,6 +58,10 @@ while true ; do
     shift
 done
 
+if [ -e "/usr/bin/sdbootutil" ] && /usr/bin/sdbootutil is-installed; then
+    is_sdbootutil=1
+fi
+
 wm2=/usr/lib/module-init-tools/weak-modules2
 nvr="$name"-"$version"-"$release"
 
@@ -66,7 +70,7 @@ system_map=${modules_dir}/System.map
 
 run_wm2() {
     [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo wm2 "$@" >&2
-    $wm2 "$@"
+    is_sdbootutil="$is_sdbootutil" $wm2 "$@"
 }
 
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
