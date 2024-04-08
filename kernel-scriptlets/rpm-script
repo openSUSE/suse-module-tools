@@ -64,6 +64,14 @@ nvr="$name"-"$version"-"$release"
 modules_dir=/usr/lib/modules/$kernelrelease-$flavor
 system_map=${modules_dir}/System.map
 
+# During the image creation (KIWI) we can install the kernel before
+# there is any bootloader installed.  If we detect that sdbootutil
+# package is installed, but the bootloader installation test fails,
+# then we assume that sdbootutil will be used.
+if [ -e "/usr/bin/sdbootutil" ] && { /usr/bin/sdbootutil is-installed || [ -e /.buildenv ]; } then
+    is_sdbootutil=1
+fi
+
 trigger_purge_kernels() {
     [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo Triggering purge-kernels >&2
     touch /boot/do_purge_kernels
@@ -84,9 +92,26 @@ message_install_bl () {
     echo "available bootloader for your platform (e.g. grub, lilo, zipl, ...)."
 }
 
-update_bootloader() {
+update_bootloader_entry() {
     if [ ! -e /.buildenv ] ; then
-	if [ -f /etc/fstab ] ; then
+	if [ -n "$is_sdbootutil" ]; then
+	    # Transactional systems use the snapper plugins to add new
+	    # bootloader entries, and this same hook is used in normal
+	    # Tumbleweed installations that uses btrfs.
+	    #
+	    # For transactional systems we should not mangle with the
+	    # /boot inside the transaction, to keep the atomicity
+	    # promise.
+	    #
+	    # For non-transactional ones, we will generate the boot
+	    # entries here, ignoring the snapper plugin, so we have a
+	    # chance of implementing FDE in case that the system is
+	    # not using btrfs.
+	    if [ -z "$TRANSACTIONAL_UPDATE" ]; then
+		/usr/bin/sdbootutil --image="$image" add-kernel "$kernelrelease-$flavor"
+		/usr/bin/sdbootutil set-default-snapshot
+	    fi
+	elif [ -f /etc/fstab ] ; then
 	    # only run the bootloader if the usual bootloader configuration
 	    # files are there -- this is different on every architecture
 	    initrd=initrd-"$kernelrelease"-"$flavor"
@@ -115,6 +140,65 @@ update_bootloader() {
     fi
 }
 
+check_space_in_boot() {
+    # see bug #259303
+    # this script runs when the kernel gets updated with YaST
+    # YaST calls rpm always with -U
+    # -U replaces all packages with the new one
+    # rpm removes the files from the old packages after the postinstall script ran
+    # this will double the required space below /boot
+    # remove the files from the old packages to make room for the new initrd
+    # rpm may complain about low disk space if /boot/vmlinux does not fit
+    #
+    # When sdbootutil is used, the kernel and initrd should be living
+    # in sysroot, and transferred into /boot later by the snapper
+    # plugin (that calls sdbootutil add-all-kernels)
+    #
+    if [ "$YAST_IS_RUNNING" != "" ]; then
+	mydf="$( POSIXLY_CORRECT=1 df -P /boot/ | awk '/^(\/|-[[:blank:]])/{ print $4}' )"
+	if test "$mydf" != "" ; then
+	    echo "Free diskspace below /boot: $mydf blocks"
+	    # echo "512 byte blocks: $(( 2 * 1024 * 20 ))"
+	    if test "$mydf" -lt  "40960" ; then
+		echo "make room for new kernel '"$flavor"' because there are less than 20MB available."
+		# disabled because it breaks patch rpms
+		#rm -fv /boot/"$image"-*-"$flavor"
+		rm -fv /boot/initrd-*-"$flavor"
+	    fi
+	fi
+    fi
+}
+
+copy_or_link_legacy_files() {
+    # compat stuff for /boot.
+    # if /boot and /usr are not separate partitions we can just link
+    # the kernel there to save space. Otherwise copy.
+    if mountpoint -q /boot || mountpoint -q /usr; then
+	copy_or_link="cp -a --remove-destination"
+	separate_boot='1'
+    else
+	copy_or_link="ln -sf"
+	separate_boot=""
+    fi
+
+    for x in "$image" sysctl.conf System.map config; do
+	if [ "$separate_boot" = 1 ] || [ ! -e /boot/$x-"$kernelrelease"-"$flavor" ]; then
+	    $copy_or_link .."$modules_dir"/$x /boot/$x-"$kernelrelease"-"$flavor" || script_rc=$?
+	    if [ -e "$modules_dir"/.$x.hmac ]; then
+		$copy_or_link .."$modules_dir"/.$x.hmac /boot/.$x-"$kernelrelease"-"$flavor".hmac || script_rc=$?
+	    fi
+	fi
+    done
+
+    for x in /boot/"$image" /boot/initrd; do
+	rm -f "$x"
+	ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
+    done
+    rm -f /boot/.vmlinuz.hmac
+    [ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
+	ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
+}
+
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
     echo "$op" name: "$name" version: "$version" release: "$release" \
     kernelrelease: "$kernelrelease" flavor: "$flavor" variant: "$variant" \
@@ -124,27 +208,7 @@ script_rc=0
 
 case $op in
     pre)
-	# see bug #259303
-	# this script runs when the kernel gets updated with YaST
-	# YaST calls rpm always with -U
-	# -U replaces all packages with the new one
-	# rpm removes the files from the old packages after the postinstall script ran
-	# this will double the required space below /boot
-	# remove the files from the old packages to make room for the new initrd
-	# rpm may complain about low disk space if /boot/vmlinux does not fit
-	if [ "$YAST_IS_RUNNING" != "" ]; then
-	    mydf="$( POSIXLY_CORRECT=1 df -P /boot/ | awk '/^(\/|-[[:blank:]])/{ print $4}' )"
-	    if test "$mydf" != "" ; then
-		echo "Free diskspace below /boot: $mydf blocks"
-		# echo "512 byte blocks: $(( 2 * 1024 * 20 ))"
-		if test "$mydf" -lt  "40960" ; then
-		    echo "make room for new kernel '"$flavor"' because there are less than 20MB available."
-		    # disabled because it breaks patch rpms
-		    #rm -fv /boot/"$image"-*-"$flavor"
-		    rm -fv /boot/initrd-*-"$flavor"
-		fi
-	    fi
-	fi
+	[ -n "$is_sdbootutil" ] || check_space_in_boot
 
 	# On AArch64 we switched from 64k PAGE_SIZE to 4k PAGE_SIZE. Unfortunately
 	# btrfs can only use file systems created with the same PAGE_SIZE. So we
@@ -189,38 +253,12 @@ EOF
 	;;
     post)
 	# Flag to trigger /etc/init.d/purge-kernels on next reboot (fate#312018)
-	# ... but avoid the first installion (bsc#1180058)
+	# ... but avoid the first installation (bsc#1180058)
 	if [ "$1" -gt 1 ]; then
 	    trigger_purge_kernels || script_rc=$?
 	fi
 
-	# compat stuff for /boot.
-	# if /boot and /usr are not speparate partitions we can just link
-	# the kernel there to save space. Otherwise copy.
-	if mountpoint -q /boot || mountpoint -q /usr; then
-	    copy_or_link="cp -a --remove-destination"
-	    separate_boot='1'
-	else
-	    copy_or_link="ln -sf"
-	    separate_boot=""
-	fi
-
-	for x in "$image" sysctl.conf System.map config; do
-	    if [ "$separate_boot" = 1 ] || [ ! -e /boot/$x-"$kernelrelease"-"$flavor" ]; then
-		$copy_or_link .."$modules_dir"/$x /boot/$x-"$kernelrelease"-"$flavor" || script_rc=$?
-		if [ -e "$modules_dir"/.$x.hmac ]; then
-		    $copy_or_link .."$modules_dir"/.$x.hmac /boot/.$x-"$kernelrelease"-"$flavor".hmac || script_rc=$?
-		fi
-	    fi
-	done
-
-	for x in /boot/"$image" /boot/initrd; do
-	    rm -f "$x"
-	    ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
-	done
-	rm -f /boot/.vmlinuz.hmac
-	[ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
-	    ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
+	[ -n "$is_sdbootutil" ] || copy_or_link_legacy_files
 
 	# Add symlinks of compatible modules to /lib/modules/$krel/weak-updates/,
 	# run depmod and dracut
@@ -231,7 +269,7 @@ EOF
 	    script_rc=1
 	fi
 
-	[ "$INITRD_IN_POSTTRANS" ] || update_bootloader
+	[ "$INITRD_IN_POSTTRANS" ] || update_bootloader_entry
 	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
 	;;
     preun)
@@ -258,8 +296,15 @@ EOF
 	    run_wm2 --remove-kernel "$kernelrelease"-"$flavor"
 	fi
 
+	# can't check $1 as kernel is usually multiversion. So need to check if
+	# that particular kernel was actually removed from disk.
+	if [ -n "$is_sdbootutil" ] && [ ! -e /.buildenv ] \
+	    && [ ! -e /lib/modules/"$kernelrelease-$flavor/$image" ]; then
+	    if [ -z "$TRANSACTIONAL_UPDATE" ]; then
+		/usr/bin/sdbootutil --image="$image" remove-kernel "$kernelrelease-$flavor"
+	    fi
 	# remove fstab check once perl-Bootloader can cope with it
-	if [ -f /etc/fstab ]; then
+	elif [ -f /etc/fstab ]; then
 	    if [ -x /usr/lib/bootloader/bootloader_entry ]; then
 		/usr/lib/bootloader/bootloader_entry \
 		    remove \
@@ -273,10 +318,10 @@ EOF
 	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@"
 	;;
     posttrans)
-	if test -x /usr/lib/module-init-tools/regenerate-initrd-posttrans; then
+	if [ -x /usr/lib/module-init-tools/regenerate-initrd-posttrans ]; then
 	    /bin/bash -c 'set +e; /usr/lib/module-init-tools/regenerate-initrd-posttrans' || script_rc=$?
 	fi
-	[ ! "$INITRD_IN_POSTTRANS" ] || update_bootloader
+	[ ! "$INITRD_IN_POSTTRANS" ] || update_bootloader_entry
 	;;
     *)
 	echo Unknown scriptlet "$op" >&2
