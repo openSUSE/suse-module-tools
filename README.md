@@ -115,3 +115,102 @@ that sysctl settings which are recommended for the currently running kernel
 are applied by **systemd-sysctl.service** at boot time. These settings are
 shipped in the file `/boot/sysctl.conf-$(uname -r)`, which is part of the
 kernel package.
+
+
+# Boot Loader Specification (BLS) and EFI System Partition (ESP)
+
+There are scripts generating boot entries (via perl-Bootloader), new
+initrds (via dracut) and updating the kernel module dependency lists
+(via depmod).  If we are in a system using the boot entries defined in
+the bootloader specification (BLS), then we need to take special
+considerations.
+
+The tool `sdbootutil` is the one responsible of synchronizing the
+content in the rootfs with the ESP (kernel, bootloader, shim, boot
+entries, initrd, etc), so certain actions should be delegated to it.
+
+To complicate the situation further, transactional systems (like
+MicroOS) cannot access the ESP from inside the transaction as that
+would break the atomicity of the update operation.  It is the
+`snapper` plugin provided by `sdbootutil` that will call the scripts
+in the correct moment (when setting the new default snapshot).
+
+This imposes that `weak-modules2`, `regenerate-initrd-posttrans`, the
+`kernel-scriptlets` and the snapper plugin now need to work in
+coordination, reordering certain actions depending on the kind of
+system.  The following table summarizes those interactions:
+
+
+| Model            | Operation | Element    | Done                           |
+|------------------|-----------|------------|--------------------------------|
+| Traditional      | Kernel    | depmod     | wm2 (rpm-script/post[un])      |
+|                  |           | initrd     | wm2 (rpm-script/post[un])      |
+|                  |           | boot entry | rpm-script/post[un]            |
+|                  |           |            |                                |
+|                  | KMP       | depmod     | wm2 (inkmp-script/post[un])    |
+|                  |           | initrd     | wm2 (inkmp-script/post[un])    |
+|                  |           |            |                                |
+|                  | Dracut    | initrd     | regenerate-initrd-posttrans[1] |
+|------------------|-----------|------------|--------------------------------|
+| MicroOS[2]       | Kernel    | depmod     | wm2 (rpm-script/post[un])      |
+|                  |           | initrd     | wm2 (rpm-script/post[un])      |
+|                  |           | boot entry | rpm-script/post[un]            |
+|                  |           |            |                                |
+|                  | KMP       | depmod     | wm2 (inkmp-script/post[un])    |
+|                  |           | initrd     | wm2 (inkmp-script/post[un])    |
+|                  |           |            |                                |
+|                  | Dracut    | initrd     | regenerate-initrd-posttrans    |
+|------------------|-----------|------------|--------------------------------|
+| Tumbleweed + BLS | Kernel    | depmod     | wm2 (rpm-script/post[un])[3]   |
+|                  |           | initrd     | wm2 (rpm-script/post[un])      |
+|                  |           | boot entry | rpm-script/post[un]            |
+|                  |           |            |                                |
+|                  | KMP       | depmod     | wm2 (inkmp-script/post[un])    |
+|                  |           | initrd     | wm2 (inkmp-script/post[un])    |
+|                  |           |            |                                |
+|                  | Dracut    | initrd     | regenerate-initrd-posttrans    |
+|------------------|-----------|------------|--------------------------------|
+| MicroOS + BLS    | Kernel    | depmod     | wm2 (rpm-script/post[un])      |
+|                  |           | initrd     | snapper plugin[4]              |
+|                  |           | boot entry | snapper plugin                 |
+|                  |           |            |                                |
+|                  | KMP       | depmod     | snapper plugin[5]              |
+|                  |           | initrd     | wm2 (rpm-script/post[un])      |
+|                  |           |            |                                |
+|                  | Dracut    | initrd     | snapper plugin                 |
+|------------------|-----------|------------|--------------------------------|
+| Tumbleweed + BLS | Kernel    | depmod     | wm2 (rpm-script/post[un])[6]   |
+| (no btrfs)       |           | initrd     | wm2 (rpm-script/post[un])      |
+|                  |           | boot entry | rpm-script/post[un]            |
+|                  |           |            |                                |
+|                  | KMP       | depmod     | wm2 (inkmp-script/post[un])    |
+|                  |           | initrd     | wm2 (inkmp-script/post[un])    |
+|                  |           |            |                                |
+|                  | Dracut    | initrd     | regenerate-initrd-posttrans    |
+|------------------|-----------|------------|--------------------------------|
+
+Notes:
+
+[1] Triggered by the `%regenerate_initrd_post[trans]` macros
+
+[2] In MicroOS (or any system that use transactional-update) the
+    kernel in /boot is inside the transaction, so gets discarded if
+    the snapshot is dropped.
+
+[3] Could be done in the snapper plugin, but it is done in
+    weak-modules2 as in the traditional case, by calling `sdbootutil
+    --no-reuse-initrd`, which also creates the boot entry.  The initrd
+    name is selected from the current default boot entry
+
+[4] When adding or removing a kernel, the `sdbootutil
+    set_default_snapshot` will regenerate boot entries for all the
+    remaining kernels in the snapshot.  This will synchronize also the
+    initrds (but can leave old initrds in the ESP).  Also, wm2 will
+    create a mark in `/run/regenerate-initrd`.
+
+[5] A direct call to `regenerate-initrd-posttrans` inside the
+    transaction will drop the call and keep the
+    `/run/regenerate-initrd` directory.  A second call (from the
+    snapper plugin) will complete it.
+
+[6] `sdbootutil` partially understand BLS systems without snapshots.

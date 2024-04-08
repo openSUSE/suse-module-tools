@@ -76,7 +76,7 @@ find_lsinitrd() {
 find_depmod() {
     local _d
 
-    [[ -x "$DEPMOD" ]] && return
+    [[ ! -x "$DEPMOD" ]] || return
     DEPMOD=
     for _d in /usr/sbin /sbin; do
 	if [[ -x ${_d}/depmod ]]; then
@@ -89,6 +89,15 @@ find_depmod() {
 	exit 1
     fi
     dlog "DEPMOD=$DEPMOD"
+}
+
+find_sdbootutil() {
+    [[ ! -x "$SDBOOTUTIL" ]] || return
+    SDBOOTUTIL=
+    if [ -e "/usr/bin/sdbootutil" ] && /usr/bin/sdbootutil is-installed; then
+	SDBOOTUTIL="/usr/bin/sdbootutil"
+    fi
+    dlog "SDBOOTUTIL=$SDBOOTUTIL"
 }
 
 find_usrmerge_boot() {
@@ -419,8 +428,22 @@ dropindirs_sort() {
     }
 }
 
+get_current_initrd() {
+    local krel=$1
+    local initrd
+    if [ -n "$SDBOOTUTIL" ]; then
+	if [ -z "$TRANSACTIONAL_UPDATE" ] && [ -s '/etc/kernel/entry-token' ]; then
+	    read -r initrd <<<"$(sdbootutil --entry-keys=initrd show-entry $krel)"
+	fi
+    else
+	initrd="/boot/initrd-$krel"
+    fi
+    echo "$initrd"
+}
+
 get_current_basenames() {
-    $LSINITRD /boot/initrd-$1 |
+    local initrd=$(get_current_initrd $1)
+    $LSINITRD "$initrd" |
 	sed -rn 's:.*\<usr/lib/modules/.*/::p' |
 	strip_mod_extensions
 }
@@ -487,7 +510,8 @@ needs_initrd() {
 	dlog "needs_initrd: yes, kernel package"
 	return 0
     fi
-    if [ ! -e /boot/initrd-$krel ]; then
+    local initrd="$(get_current_initrd $krel)"
+    if [ -z "$SDBOOTUTIL" ] && [ ! -e "$initrd" ]; then
 	dlog "needs_initrd: yes, initrd doesn't exist yet"
 	return 0
     fi
@@ -524,11 +548,16 @@ run_depmod_build_initrd() {
 	    [ -z "$image" ] || break
 	done
 	if [ -n "$image" ]; then
-	    if test -n "$INITRD_IN_POSTTRANS"; then
+	    if [ -n "$INITRD_IN_POSTTRANS" ] || ([ -n "$SDBOOTUTIL" ] && [ -n "$TRANSACTIONAL_UPDATE" ]); then
 		mkdir -p /run/regenerate-initrd
 		doit touch /run/regenerate-initrd/$krel
 	    else
-		doit "$DRACUT" -f /boot/initrd-$krel $krel
+		if [ -n "$SDBOOTUTIL" ] && [ -z "$TRANSACTIONAL_UPDATE" ]; then
+		    doit "$SDBOOTUTIL" --no-reuse-initrd add-kernel "$krel"
+		elif [ -z "$SDBOOTUTIL" ]; then
+		    local initrd="$(get_current_initrd $krel)"
+		    doit "$DRACUT" -f "$initrd" $krel
+		fi
 		status=$?
 	    fi
 	else
@@ -899,6 +928,7 @@ fi
 #unset LANG LC_ALL LC_COLLATE
 find_depmod
 find_lsinitrd
+find_sdbootutil
 
 tmpdir=$(mktemp -d /var/tmp/${0##*/}.XXXXXX)
 trap "rm -rf $tmpdir" EXIT
