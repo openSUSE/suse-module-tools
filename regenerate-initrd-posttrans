@@ -1,4 +1,8 @@
 #!/bin/sh
+# Local variables:
+# indent-tabs-mode: t
+# sh-basic-offset: 8
+# End:
 #
 # Packages that install kernels or kernel-modules create a flag
 #
@@ -36,27 +40,43 @@ for f in "$dir"/*; do
 	break
 done
 
+err=0
+work_done=
+
 if test -e "$dir/all"; then
 	rm "$dir"/*
-	[ "$SKIP_REGENERATE_INITRD_ALL" = 1 ] ||
+	[ "$SKIP_REGENERATE_INITRD_ALL" = 1 ] || {
 		"$DRACUT" -f --regenerate-all
-	exit
+		work_done=yes
+	}
+else
+	for f in "$dir"/*; do
+		case $f in
+			"$dir/*")
+				[ -e "$f" ] || break;;
+		esac
+		rm -f "$f"
+		image=${f##*/}
+		kver=${image#*-}
+		if ! test -e "/boot/$image"; then
+			echo "$0: /boot/$image does not exist, initrd won't be generated"
+			continue
+		fi
+		if ! "$DRACUT" -f --kver "$kver"; then
+			err=$?
+		else
+			work_done=yes
+		fi
+	done
 fi
-err=0
-for f in "$dir"/*; do
-	case $f in
-	    "$dir/*")
-		[ -e "$f" ] || break;;
-	esac
-	rm "$f"
-	image=${f##*/}
-	kver=${image#*-}
-	if ! test -e "/boot/$image"; then
-		echo "$0: /boot/$image does not exist, initrd won't be generated"
-		continue
-	fi
-	if ! "$DRACUT" -f --kver "$kver"; then
-		err=$?
-	fi
-done
+
+# For XEN/grub2 configurations, make sure the updated initrds are copied
+# to the EFI system partition. See /etc/grub.d/20_linux_xen.
+# The test for xen*.gz is simplistic but should be correct here.
+# 20_linux_xen will apply more sophisticated heuristics to detect XEN.
+[ ! "$work_done" ] || [ ! -d /sys/firmware/efi ] || \
+	[ ! -x /sbin/update-bootloader ] || \
+	[ "$(echo /boot/xen*.gz)" = "/boot/xen*.gz" ] || \
+	/sbin/update-bootloader --refresh
+
 exit $err
