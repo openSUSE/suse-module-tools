@@ -1,4 +1,8 @@
 #!/bin/sh
+# Local variables:
+# indent-tabs-mode: t
+# sh-basic-offset: 8
+# End:
 #
 # Packages that install kernels or kernel-modules create a flag
 #
@@ -36,31 +40,47 @@ for f in "$dir"/*; do
 	break
 done
 
+err=0
+work_done=
+
 if test -e "$dir/all"; then
 	rm "$dir"/*
-	[ "$SKIP_REGENERATE_INITRD_ALL" = 1 ] ||
+	[ "$SKIP_REGENERATE_INITRD_ALL" = 1 ] || {
 		"$DRACUT" -f --regenerate-all
-	exit
-fi
-err=0
-for f in "$dir"/*; do
-	case $f in
-	    "$dir/*")
-		[ -e "$f" ] || break;;
-	esac
-	rm -f "$f"
-	kver=${f##*/}
-	case "$kver" in
-	    vmlinuz-*|image-*|vmlinux-*|linux-*|bzImage-*|uImage-*|Image-*|zImage-*)
-		kver=${kver#*-}
-		;;
-	esac
-	[ -d /lib/modules/"$kver" ] || {
-	    echo $0: skipping invalid kernel version "$dir/$kver"
-	    continue
+		work_done=yes
 	}
-	if ! "$DRACUT" -f --kver "$kver"; then
-		err=$?
-	fi
-done
+else
+	for f in "$dir"/*; do
+		case $f in
+			"$dir/*")
+				[ -e "$f" ] || break;;
+		esac
+		rm -f "$f"
+		kver=${f##*/}
+		case "$kver" in
+			vmlinuz-*|image-*|vmlinux-*|linux-*|bzImage-*|uImage-*|Image-*|zImage-*)
+				kver=${kver#*-}
+				;;
+		esac
+		[ -d /lib/modules/"$kver" ] || {
+			echo $0: skipping invalid kernel version "$dir/$kver"
+			continue
+		}
+		if ! "$DRACUT" -f --kver "$kver"; then
+			err=$?
+		else
+			work_done=yes
+		fi
+	done
+fi
+
+# For XEN/grub2 configurations, make sure the updated initrds are copied
+# to the EFI system partition. See /etc/grub.d/20_linux_xen.
+# The test for xen*.gz is simplistic but should be correct here.
+# 20_linux_xen will apply more sophisticated heuristics to detect XEN.
+[ ! "$work_done" ] || [ ! -d /sys/firmware/efi ] || \
+	[ ! -x /sbin/update-bootloader ] || \
+	[ "$(echo /boot/xen*.gz)" = "/boot/xen*.gz" ] || \
+	/sbin/update-bootloader --refresh
+
 exit $err
