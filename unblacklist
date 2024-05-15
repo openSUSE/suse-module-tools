@@ -1,13 +1,19 @@
 #! /bin/sh
-# Copyright (c) 2021 SUSE LLC
+# Copyright (c) 2021-2024 SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
+
+ME="${0##*/}"
+if [ -e /etc/initrd-release ]; then
+    [ "$RD_DEBUG" != "yes" ] || \
+	echo "$ME: called in initramfs for \"$@\" - ignoring" >&2
+    exit 0
+fi
 
 # Never unblacklist non-interactively
 if ! tty -s <&0; then
     exit 0
 fi
 
-ME=$(basename "$0")
 if [ $UID -ne 0 ]; then
     echo "$ME: you must be root to run this program" >&2
     exit 1

@@ -33,6 +33,7 @@
 %global depmod_dir /lib/depmod.d
 %global with_boot_sysctl 1
 %endif
+%global dracutlibdir %{_prefix}/lib/dracut
 %global sysctl_dropin %{_unitdir}/systemd-sysctl.service.d/50-kernel-uname_r.conf
 %global systemd_units %{?with_boot_sysctl:boot-sysctl.service} %{?with_kernel_sysctl:kernel-sysctl.service}
 
@@ -162,6 +163,8 @@ for i in "pre" "preun" "post" "posttrans" "postun" ; do
     ln -s rpm-script %{buildroot}/usr/lib/module-init-tools/kernel-scriptlets/rpm-$i
 done
 
+install -d -m 755 %{buildroot}%{dracutlibdir}/dracut.conf.d
+install -pm 644 10-unblacklist.conf %{buildroot}%{dracutlibdir}/dracut.conf.d
 install -d -m 755 "%{buildroot}%{_prefix}/bin"
 install -pm 755 kmp-install "%{buildroot}%{_bindir}/"
 
@@ -269,6 +272,8 @@ exit 0
 %{_unitdir}/systemd-sysctl.service.d
 %{_modulesloaddir}
 %{_udevrulesdir}
+%dir %{dracutlibdir}
+%{dracutlibdir}/dracut.conf.d
 %ifarch ppc64 ppc64le
 /usr/lib/systemd/system-generators
 %endif
