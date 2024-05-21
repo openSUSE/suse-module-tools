@@ -8,6 +8,7 @@ SUBSYSTEM!="cpu|memory", GOTO="hotplug_cpu_end"
 # Hotplug physical CPU
 #
 SUBSYSTEM=="cpu", CONST{arch}=="x86-64", TEST=="online", ATTR{online}=="0", ATTR{online}="1"
+SUBSYSTEM=="cpu", CONST{arch}=="s390*", TEST=="online", ATTR{configure}=="1", ATTR{online}=="0", ATTR{online}="1"
 
 #
 # Hotplug physical memory. Instances of tmpfs are remounted so their
