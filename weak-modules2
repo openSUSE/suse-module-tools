@@ -76,7 +76,7 @@ find_lsinitrd() {
 find_depmod() {
     local _d
 
-    [[ -x "$DEPMOD" ]] && return
+    [[ ! -x "$DEPMOD" ]] || return
     DEPMOD=
     for _d in /usr/sbin /sbin; do
 	if [[ -x ${_d}/depmod ]]; then
@@ -92,7 +92,7 @@ find_depmod() {
 }
 
 find_sdbootutil() {
-    [[ -x "$SDBOOTUTIL" ]] && return
+    [[ ! -x "$SDBOOTUTIL" ]] || return
     SDBOOTUTIL=
     if [ -e "/usr/bin/sdbootutil" ] && /usr/bin/sdbootutil is-installed; then
 	SDBOOTUTIL="/usr/bin/sdbootutil"
@@ -430,7 +430,7 @@ dropindirs_sort() {
 
 get_current_initrd() {
     local krel=$1
-    local initrd entry
+    local initrd
     if [ -n "$SDBOOTUTIL" ]; then
 	if [ -z "$TRANSACTIONAL_UPDATE" ] && [ -s '/etc/kernel/entry-token' ]; then
 	    read -r initrd <<<"$(sdbootutil --entry-keys=initrd show-entry $krel)"
@@ -511,7 +511,7 @@ needs_initrd() {
 	return 0
     fi
     local initrd="$(get_current_initrd $krel)"
-    if [ -z "$SDBOOTUTIL" ] && [ ! -e "$inird" ]; then
+    if [ -z "$SDBOOTUTIL" ] && [ ! -e "$initrd" ]; then
 	dlog "needs_initrd: yes, initrd doesn't exist yet"
 	return 0
     fi

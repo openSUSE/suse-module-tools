@@ -36,9 +36,10 @@ fi
 # atomicity promise.  We need to delay the call to this script after
 # the transaction has been completed.  The component that will call
 # again regenerate-initrd-posttrans to generate the new initrd is the
-# sdbootutil snapper plugin, and the tukit plugin will migrate the
-# signal from inside the transaction to outside.
-if [ -n "$is_sdbootutil" ] && [ -n "$TRANSACTIONAL_UPDATE" ] && [ -z "$TRANSACTIONAL_UPDATE_INITRD" ]; then
+# sdbootutil snapper plugin (this time outside the live transaction),
+# and the tukit plugin will migrate the signal from inside the
+# transaction to outside.
+if [ -n "$is_sdbootutil" ] && [ -n "$TRANSACTIONAL_UPDATE" ]; then
 	exit 0
 fi
 
@@ -62,7 +63,7 @@ work_done=
 if test -e "$dir/all"; then
 	rm "$dir"/*
 	[ "$SKIP_REGENERATE_INITRD_ALL" = 1 ] || {
-		if [ -n "$is_sdbootutil" ] && [ -z "$TRANSACTIONAL_UPDATE" ]; then
+		if [ -n "$is_sdbootutil" ]; then
 			/usr/bin/sdbootutil --no-reuse-initrd add-all-kernels
 		else
 			"$DRACUT" -f --regenerate-all
@@ -86,7 +87,7 @@ else
 			echo $0: skipping invalid kernel version "$dir/$kver"
 			continue
 		}
-		if [ -n "$is_sdbootutil" ] && [ -z "$TRANSACTIONAL_UPDATE" ]; then
+		if [ -n "$is_sdbootutil" ]; then
 			if ! /usr/bin/sdbootutil --no-reuse-initrd add-kernel "$kver"; then
 				err=$?
 			else

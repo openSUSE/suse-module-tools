@@ -68,7 +68,7 @@ system_map=${modules_dir}/System.map
 # there is any bootloader installed.  If we detect that sdbootutil
 # package is installed, but the bootloader installation test fails,
 # then we assume that sdbootutil will be used.
-if [ -e "/usr/bin/sdbootutil" ] && { /usr/bin/sdbootutil is-installed || [ ! -e /boot/efi ]; } then
+if [ -e "/usr/bin/sdbootutil" ] && { /usr/bin/sdbootutil is-installed || [ -e /.buildenv ]; } then
     is_sdbootutil=1
 fi
 
@@ -163,7 +163,7 @@ check_space_in_boot() {
 		echo "make room for new kernel '"$flavor"' because there are less than 20MB available."
 		# disabled because it breaks patch rpms
 		#rm -fv /boot/"$image"-*-"$flavor"
-		[ -n "$is_sdbootutil" ] || rm -fv /boot/initrd-*-"$flavor"
+		rm -fv /boot/initrd-*-"$flavor"
 	    fi
 	fi
     fi
@@ -197,6 +197,8 @@ copy_or_link_legacy_files() {
     rm -f /boot/.vmlinuz.hmac
     [ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
 	ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
+
+    return script_rc
 }
 
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
@@ -258,7 +260,7 @@ EOF
 	    trigger_purge_kernels || script_rc=$?
 	fi
 
-	[ -n "$is_sdbootutil" ] || copy_or_link_legacy_files
+	[ -n "$is_sdbootutil" ] || copy_or_link_legacy_files || script_rc=$?
 
 	# Add symlinks of compatible modules to /lib/modules/$krel/weak-updates/,
 	# run depmod and dracut
