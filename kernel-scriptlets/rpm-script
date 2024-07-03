@@ -59,7 +59,6 @@ while true ; do
 done
 
 wm2=/usr/lib/module-init-tools/weak-modules2
-nvr="$name"-"$version"-"$release"
 
 modules_dir=/usr/lib/modules/$kernelrelease-$flavor
 system_map=${modules_dir}/System.map
@@ -120,16 +119,16 @@ update_bootloader_entry() {
 	    fi
 	    # Note: the 2nd condition is for removing the bootloader
 	    # entry for an uninstalled kernel.
-	    if [ -e /boot/$initrd -o ! -e "$modules_dir" ]; then
-		[ -e /boot/$initrd ] || initrd=
+	    if [ -e "/boot/$initrd" ] || [ ! -e "$modules_dir" ]; then
+		[ -e "/boot/$initrd" ] || initrd=
 		if [ -x /usr/lib/bootloader/bootloader_entry ]; then
 		    /usr/lib/bootloader/bootloader_entry \
 			add \
 			"$flavor" \
 			"$kernelrelease"-"$flavor" \
 			"$image"-"$kernelrelease"-"$flavor" \
-			$initrd \
-			$default || script_rc=$?
+			"$initrd" \
+			"$default" || script_rc=$?
 		else
 		    message_install_bl
 		fi
@@ -160,7 +159,7 @@ check_space_in_boot() {
 	    echo "Free diskspace below /boot: $mydf blocks"
 	    # echo "512 byte blocks: $(( 2 * 1024 * 20 ))"
 	    if test "$mydf" -lt  "40960" ; then
-		echo "make room for new kernel '"$flavor"' because there are less than 20MB available."
+		echo "make room for new kernel '$flavor' because there are less than 20MB available."
 		# disabled because it breaks patch rpms
 		#rm -fv /boot/"$image"-*-"$flavor"
 		rm -fv /boot/initrd-*-"$flavor"
@@ -182,10 +181,10 @@ copy_or_link_legacy_files() {
     fi
 
     for x in "$image" sysctl.conf System.map config; do
-	if [ "$separate_boot" = 1 ] || [ ! -e /boot/$x-"$kernelrelease"-"$flavor" ]; then
-	    $copy_or_link .."$modules_dir"/$x /boot/$x-"$kernelrelease"-"$flavor" || script_rc=$?
-	    if [ -e "$modules_dir"/.$x.hmac ]; then
-		$copy_or_link .."$modules_dir"/.$x.hmac /boot/.$x-"$kernelrelease"-"$flavor".hmac || script_rc=$?
+	if [ "$separate_boot" = 1 ] || [ ! -e "/boot/$x-$kernelrelease-$flavor" ]; then
+	    $copy_or_link "..$modules_dir/$x" "/boot/$x-$kernelrelease-$flavor" || script_rc=$?
+	    if [ -e "$modules_dir/.$x.hmac" ]; then
+		$copy_or_link "..$modules_dir/.$x.hmac" "/boot/.$x-$kernelrelease-$flavor".hmac || script_rc=$?
 	    fi
 	fi
     done
