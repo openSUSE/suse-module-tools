@@ -81,6 +81,8 @@ Summary:        Kernel rpm scriptlets
 Provides:       suse-kernel-rpm-scriptlets = 0
 Requires:       suse-module-tools = %{version}
 Provides:       suse-module-tools:/usr/lib/module-init-tools/kernel-scriptlets
+Provides:       sdbootutil-rpm-scriptlets = 2.0
+Obsoletes:      sdbootutil-rpm-scriptlets < 2.0
 
 %description scriptlets
 Scripts called by the SUSE kernel packages on installation
