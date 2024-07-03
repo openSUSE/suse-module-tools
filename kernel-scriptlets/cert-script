@@ -22,6 +22,8 @@ while true ; do
 done
 
 is_efi () {
+    # All shells supported as /bin/sh under SUSE support "local"
+    # shellcheck disable=SC3043
     local msg rc=0
 
 # The below statement fails if mokutil isn't installed or UEFI is unsupported.
@@ -72,6 +74,8 @@ case $op in
 	# XXX: Only call mokutil if UEFI and shim are used
 	for cert in $certs; do
 	    cert="/etc/uefi/certs/${cert}.crt"
+	    # Word splitting is intended here
+	    # shellcheck disable=SC2086
 	    run_mokutil --import "$cert" --root-pw ${MOK_ARGS}
 	    rc=$?
 	    if [ $rc != 0 ] ; then
