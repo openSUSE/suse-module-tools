@@ -147,6 +147,13 @@ EOF
     script_rc=1
 }
 
+run_cert_script() {
+    [ -z "$certs" ] || \
+	"/usr/lib/module-init-tools/kernel-scriptlets/cert-$op" \
+	    --ca-check 1 --certs "$certs" "$@" || \
+	script_rc=$?
+}
+
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
     echo "$op" name: "$name" version: "$version" release: "$release" \
     kernelrelease: "$kernelrelease" flavor: "$flavor" variant: "$variant" \
@@ -178,7 +185,7 @@ case $op in
 	    fi
 	fi
 	check_arm_pagesize
-	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
+	run_cert_script "$@"
 	;;
     post)
 	# Flag to trigger /etc/init.d/purge-kernels on next reboot (fate#312018)
@@ -205,13 +212,13 @@ case $op in
 	fi
 
 	[ "$INITRD_IN_POSTTRANS" ] || update_bootloader
-	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
+	run_cert_script "$@"
 	;;
     preun)
 	[ ! -L /boot/.vmlinuz.hmac ] ||
 	    [ "$(readlink /boot/.vmlinuz.hmac)" != ".vmlinuz-$kernelrelease-$flavor.hmac" ] ||
 	    rm -f /boot/.vmlinuz.hmac
-	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@" || script_rc=$?
+	run_cert_script "$@"
 	;;
     postun)
 	# If a kernel package is removed before the next reboot, we assume that the
@@ -243,7 +250,7 @@ case $op in
 	    fi
 	fi
 
-	[ -z "$certs" ] || /usr/lib/module-init-tools/kernel-scriptlets/cert-$op --ca-check 1 --certs "$certs" "$@"
+	run_cert_script "$@"
 	;;
     posttrans)
 	if test -x /usr/lib/module-init-tools/regenerate-initrd-posttrans; then
