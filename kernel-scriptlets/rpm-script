@@ -120,17 +120,14 @@ check_arm_pagesize() {
     # btrfs can only use file systems created with the same PAGE_SIZE. So we
     # check if the user has any btrfs file systems mounted and refuse to install
     # in that case.
-    if [ "$flavor" = default ] && [ "$( uname -m )" = aarch64 ] && \
-	   zgrep -q CONFIG_ARM64_64K_PAGES=y /proc/config.gz; then
-	if [ "$FORCE_4K" = 1 ]; then
-	    # The user knows what he's doing, let him be.
-	    return
-	fi
-	if [ "$YAST_IS_RUNNING" = "instsys" ]; then
-	    # We're probably test installing the kernel, that should succeed
-	    return
-	fi
-	cat >&2 <<-EOF
+    # FORCE_4K: The user knows what he's doing, let him be.
+    # YAST_IS_RUNNING: We're probably test installing the kernel, that should succeed
+    if [ "$flavor" != default ] || [ "$( uname -m )" != aarch64 ] || \
+	   [ "$FORCE_4K" = 1 ] || [ "$YAST_IS_RUNNING" = instsys ] || \
+	   ! zgrep -q CONFIG_ARM64_64K_PAGES /proc/config.gz; then
+	return
+    fi
+    cat >&2 <<-EOF
 You are running on a 64kb PAGE_SIZE kernel. The default kernel
 switched to 4kb PAGE_SIZE which will prevent it from mounting btrfs
 or the swap partition.
@@ -148,9 +145,7 @@ To stay with a 64kb PAGE_SIZE kernel, please follow these steps:
 You will then be on the 64kb PAGE_SIZE kernel and can update your
 system normally.
 EOF
-
-	script_rc=1
-    fi
+    script_rc=1
 }
 
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
