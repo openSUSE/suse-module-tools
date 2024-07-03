@@ -59,7 +59,6 @@ while true ; do
 done
 
 wm2=/usr/lib/module-init-tools/weak-modules2
-nvr="$name"-"$version"-"$release"
 
 modules_dir=/lib/modules/$kernelrelease-$flavor
 system_map=/boot/System.map-$kernelrelease-$flavor
@@ -95,16 +94,16 @@ update_bootloader() {
 	    fi
 	    # Note: the 2nd condition is for removing the bootloader
 	    # entry for an uninstalled kernel.
-	    if [ -e /boot/$initrd -o ! -e "$modules_dir" ]; then
-		[ -e /boot/$initrd ] || initrd=
+	    if [ -e "/boot/$initrd" ] || [ ! -e "$modules_dir" ]; then
+		[ -e "/boot/$initrd" ] || initrd=
 		if [ -x /usr/lib/bootloader/bootloader_entry ]; then
 		    /usr/lib/bootloader/bootloader_entry \
 			add \
 			"$flavor" \
 			"$kernelrelease"-"$flavor" \
 			"$image"-"$kernelrelease"-"$flavor" \
-			$initrd \
-			$default || script_rc=$?
+			"$initrd" \
+			"$default" || script_rc=$?
 		else
 		    message_install_bl
 		fi
@@ -171,7 +170,7 @@ case $op in
 		echo "Free diskspace below /boot: $mydf blocks"
 		# echo "512 byte blocks: $(( 2 * 1024 * 20 ))"
 		if test "$mydf" -lt  "40960" ; then
-		    echo "make room for new kernel '"$flavor"' because there are less than 20MB available."
+		    echo "make room for new kernel '$flavor' because there are less than 20MB available."
 		    # disabled because it breaks patch rpms
 		    #rm -fv /boot/"$image"-*-"$flavor"
 		    rm -fv /boot/initrd-*-"$flavor"
