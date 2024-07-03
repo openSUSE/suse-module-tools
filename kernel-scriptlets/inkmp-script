@@ -61,9 +61,6 @@ done
 wm2=/usr/lib/module-init-tools/weak-modules2
 nvr="$name"-"$version"-"$release"
 
-modules_dir=/usr/lib/modules/$kernelrelease-$flavor
-system_map=${modules_dir}/System.map
-
 run_wm2() {
     [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || echo wm2 "$@" >&2
     $wm2 "$@"
@@ -81,7 +78,7 @@ case $op in
 	;;
     post)
 	if [ -x "$wm2" ]; then
-	    rpm -ql "$nvr" | INITRD_IN_POSTTRANS=1 run_wm2 --add-kernel-modules $kernelrelease-$flavor || script_rc=$?
+	    rpm -ql "$nvr" | INITRD_IN_POSTTRANS=1 run_wm2 --add-kernel-modules "$kernelrelease-$flavor" || script_rc=$?
 	fi
 	;;
     preun)
@@ -98,7 +95,7 @@ case $op in
 	# This is similar to the check for $system_map in rpm-script.
 	for __i in "${!modules[@]}"; do
 	    if [[ -e "${modules[$__i]}" ]]; then
-		unset -v modules["$__i"]
+		unset -v 'modules["$__i"]'
 	    fi
 	done
 	if [[ "${#modules[@]}" == 0 ]]; then
@@ -106,7 +103,7 @@ case $op in
 	    exit 0
 	fi
 	if [ -x "$wm2" ]; then
-	    printf '%s\n' "${modules[@]}" | run_wm2 --remove-kernel-modules $kernelrelease-$flavor || script_rc=$?
+	    printf '%s\n' "${modules[@]}" | run_wm2 --remove-kernel-modules "$kernelrelease-$flavor" || script_rc=$?
 	fi
 	;;
     posttrans)
