@@ -60,6 +60,8 @@ Provides:       udev-extra-rules = 0.3.0
 Obsoletes:      udev-extra-rules < 0.3.0
 Provides:       system-tuning-common-SUSE = 0.3.0
 Obsoletes:      system-tuning-common-SUSE < 0.3.0
+Provides:       sdbootutil-rpm-scriptlets = 2.0
+Obsoletes:      sdbootutil-rpm-scriptlets < 2.0
 # Use weak dependencies for dracut and kmod in order to
 # keep Ring0 lean. In normal deployments, these packages
 # will be available anyway.
