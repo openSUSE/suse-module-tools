@@ -207,7 +207,7 @@ check_arm_pagesize() {
     # YAST_IS_RUNNING: We're probably test installing the kernel, that should succeed
     if [ "$flavor" != default ] || [ "$( uname -m )" != aarch64 ] || \
 	   [ "$FORCE_4K" = 1 ] || [ "$YAST_IS_RUNNING" = instsys ] || \
-	   ! zgrep -q CONFIG_ARM64_64K_PAGES /proc/config.gz; then
+	   ! zgrep -q CONFIG_ARM64_64K_PAGES=y /proc/config.gz; then
 	return
     fi
     cat >&2 <<-EOF
