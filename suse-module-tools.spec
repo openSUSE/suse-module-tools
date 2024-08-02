@@ -52,6 +52,7 @@ Requires:       /usr/bin/sed
 Requires:       coreutils
 Requires:       findutils
 Requires:       systemd-rpm-macros
+Requires:       (sdbootutil if sdbootutil)
 Requires:       rpm
 Requires(post): /usr/bin/grep
 Requires(post): /usr/bin/sed
@@ -69,6 +70,8 @@ Recommends:     kmod
 Conflicts:      dracut < 49.1
 # TW: conflict with pre-usrmerge
 Conflicts:      filesystem < 16
+# Adds an ordering edge (from @mls)
+Suggests:       sdbootutil
 
 %description
 This package contains helper scripts for KMP installation and
