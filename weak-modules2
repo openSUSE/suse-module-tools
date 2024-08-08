@@ -57,6 +57,8 @@
 #
 
 : ${DRACUT:=/usr/bin/dracut}
+: ${MKOSI_INITRD:=/usr/bin/mkosi-initrd}
+
 find_lsinitrd() {
     local lsi
     LSINITRD=
@@ -98,6 +100,75 @@ find_sdbootutil() {
 	SDBOOTUTIL="/usr/bin/sdbootutil"
     fi
     dlog "SDBOOTUTIL=$SDBOOTUTIL"
+}
+
+# Check if `initrd_generator` is defined. See kernel-install(8) for details.
+# Note on how systemd gets this config:
+# - All the dropins are included in alphabetical order, no matter the location.
+# - If the variable is defined in any dropin, the main config file is ignored,
+# so in that case we don't need to find it.
+# - It only reads the first main config file (kernel/install.conf). From highest
+# to lowest priority: /etc, /usr/local/lib, /usr/lib.
+get_kernel_install_dropins_conf() {
+	local kernel_install_dropins_conf=
+	local f
+
+	for f in \
+		/etc/kernel/install.conf.d/*.conf \
+		/usr/local/lib/kernel/install.conf.d/*.conf \
+		/usr/lib/kernel/install.conf.d/*.conf \
+		; do
+		[ -f "$f" ] || continue
+		kernel_install_dropins_conf="$kernel_install_dropins_conf $f"
+	done
+	if [ -n "$kernel_install_dropins_conf" ]; then
+		for f in $kernel_install_dropins_conf; do
+			echo "${f##*/}"
+		done | sort -Vur | while read -r conf; do
+			for f in \
+				"/etc/kernel/install.conf.d/$conf" \
+				"/usr/local/lib/kernel/install.conf.d/$conf" \
+				"/usr/lib/kernel/install.conf.d/$conf" \
+				; do
+				[ -f "$f" ] || continue
+				. "$f"
+				if [ -n "$initrd_generator" ]; then
+					echo "$initrd_generator"
+					break 2
+				fi
+			done
+		done
+	fi
+}
+
+find_initrd_generator() {
+	local f
+
+	INITRD_GENERATOR="$(get_kernel_install_dropins_conf)"
+	if [ -z "$INITRD_GENERATOR" ]; then
+		for f in \
+			/etc/kernel/install.conf \
+			/usr/local/lib/kernel/install.conf \
+			/usr/lib/kernel/install.conf \
+			; do
+			if [ -f "$f" ]; then
+				. "$f"
+				if [ -n "$initrd_generator" ]; then
+					INITRD_GENERATOR="$initrd_generator"
+				fi
+				break
+			fi
+		done
+	fi
+
+	# dracut is the default initrd generator
+	if [ -z "$INITRD_GENERATOR" ]; then
+		INITRD_GENERATOR="dracut"
+	elif [ "$INITRD_GENERATOR" = "mkosi" ]; then
+		INITRD_GENERATOR="mkosi-initrd"
+	fi
+
+	dlog "INITRD_GENERATOR=$INITRD_GENERATOR"
 }
 
 find_usrmerge_boot() {
@@ -457,26 +528,35 @@ get_initrd_basenames() {
     local setpriv=$(command -v setpriv)
     local conf= cf
 
-    [[ -x "$GET_DRACUT_DRIVERS" && "$setpriv" ]] || {
-	echo "$0: unable to parse dracut configuration, skipping it" >&2
-	get_current_basenames "$1"
-	return
-    }
+	case "$INITRD_GENERATOR" in
+		"dracut")
+			[[ -x "$GET_DRACUT_DRIVERS" && "$setpriv" ]] || {
+				echo "$0: unable to parse dracut configuration, skipping it" >&2
+				get_current_basenames "$1"
+				return
+			}
 
-    [[ ! -f "$DRACUT_CONFFILE" ]] ||
-	conf="$(cat "$DRACUT_CONFFILE")"
+			[[ ! -f "$DRACUT_CONFFILE" ]] ||
+			conf="$(cat "$DRACUT_CONFFILE")"
 
-    # Assemble the content of the dracut configuration files.
-    # Make sure to put a newline between subsequent conf file contents.
-    for cf in $(dropindirs_sort .conf "$DRACUT_CONFDIR" "$DRACUT_BUILTIN_CONFDIR"); do
-	conf="$conf
+			# Assemble the content of the dracut configuration files.
+			# Make sure to put a newline between subsequent conf file contents.
+			for cf in $(dropindirs_sort .conf "$DRACUT_CONFDIR" "$DRACUT_BUILTIN_CONFDIR"); do
+			conf="$conf
 $(cat "$cf")"
-    done
+			done
 
-    # run get_dracut_drivers with reduced privileges
-    get_current_basenames "$1" |
-	"$setpriv" --reuid=nobody --regid=nobody --clear-groups --inh-caps=-all \
-		   "$GET_DRACUT_DRIVERS" "$conf"
+			# run get_dracut_drivers with reduced privileges
+			get_current_basenames "$1" |
+			"$setpriv" --reuid=nobody --regid=nobody --clear-groups --inh-caps=-all \
+					"$GET_DRACUT_DRIVERS" "$conf"
+			;;
+
+		"mkosi-initrd")
+			# TODO: get drivers from mkosi-initrd conf (KernelModulesInclude=, KernelModulesExclude=)
+			get_current_basenames "$1"
+			;;
+	esac
 }
 
 # test if rebuilding initrd is needed for $krel.
@@ -487,13 +567,22 @@ needs_initrd() {
     # Don't generate an initrd for kdump here. It's done automatically with mkdumprd when
     # /etc/init.d/boot.kdump is called to load the kdump kernel. See mkdumprd(8) why
     # it is done this way.
-    if [[ "$krel" == *kdump* ]] ; then
+    if [[ "$krel" == *kdump* ]]; then
         return 1
     fi
 
-    if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
-	echo "Please run \"$DRACUT -f /boot/initrd-$krel $krel\" as soon as your system is complete." >&2
-	return 1
+    if ! [ -f /etc/fstab -a ! -e /.buildenv ]; then
+		case "$INITRD_GENERATOR" in
+			"dracut")
+				echo "Please run \"$DRACUT -f /boot/initrd-$krel $krel\" as soon as your system is complete." >&2
+				;;
+			"mkosi-initrd")
+				# FIXME: mkosi-initrd fails to cp files directly to /boot
+				echo "Please run \"$MKOSI_INITRD --kernel-version $krel -o initrd-$krel && \
+chmod 600 initrd-$krel && cp initrd-$krel /boot\" as soon as your system is complete." >&2
+				;;
+		esac
+		return 1
     fi
     # KMPs can force initrd rebuild with %kernel_module_package -b that sets
     # this variable
@@ -555,8 +644,19 @@ run_depmod_build_initrd() {
 		if [ -n "$SDBOOTUTIL" ] && [ -z "$TRANSACTIONAL_UPDATE" ]; then
 		    doit "$SDBOOTUTIL" --no-reuse-initrd add-kernel "$krel"
 		elif [ -z "$SDBOOTUTIL" ]; then
-		    local initrd="$(get_current_initrd $krel)"
-		    doit "$DRACUT" -f "$initrd" $krel
+			local initrd="$(get_current_initrd $krel)"
+			case "$INITRD_GENERATOR" in
+				"dracut")
+					doit "$DRACUT" -f "$initrd" $krel
+					;;
+				"mkosi-initrd")
+					# FIXME: mkosi-initrd fails to cp files directly to /boot
+					doit "$MKOSI_INITRD" --kernel-version "$krel" -O "$tmpdir" -o "initrd-$krel" && \
+					doit chmod 600 "$tmpdir/initrd-$krel" && \
+					doit cp --reflink=auto "$tmpdir/initrd-$krel" "$initrd" && \
+					doit rm -f "$tmpdir/initrd-$krel"*
+					;;
+			esac
 		fi
 		status=$?
 	    fi
@@ -929,6 +1029,7 @@ fi
 find_depmod
 find_lsinitrd
 find_sdbootutil
+find_initrd_generator
 
 tmpdir=$(mktemp -d /var/tmp/${0##*/}.XXXXXX)
 trap "rm -rf $tmpdir" EXIT
