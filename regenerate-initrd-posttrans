@@ -15,14 +15,84 @@
 # to have all initrds generated. This script is called from posttrans
 # and takes care of generating the initrds
 
+# Check if `initrd_generator` is defined. See kernel-install(8) for details.
+# Note on how systemd gets this config:
+# - All the dropins are included in alphabetical order, no matter the location.
+# - If the variable is defined in any dropin, the main config file is ignored,
+# so in that case we don't need to find it.
+# - It only reads the first main config file (kernel/install.conf). From highest
+# to lowest priority: /etc, /usr/local/lib, /usr/lib.
+get_kernel_install_dropins_conf() {
+	kernel_install_dropins_conf=
+	for f in \
+		/etc/kernel/install.conf.d/*.conf \
+		/usr/local/lib/kernel/install.conf.d/*.conf \
+		/usr/lib/kernel/install.conf.d/*.conf \
+		; do
+		[ -f "$f" ] || continue
+		kernel_install_dropins_conf="$kernel_install_dropins_conf $f"
+	done
+	if [ -n "$kernel_install_dropins_conf" ]; then
+		for f in $kernel_install_dropins_conf; do
+			echo "${f##*/}"
+		done | sort -Vur | while read -r conf; do
+			for f in \
+				"/etc/kernel/install.conf.d/$conf" \
+				"/usr/local/lib/kernel/install.conf.d/$conf" \
+				"/usr/lib/kernel/install.conf.d/$conf" \
+				; do
+				[ -f "$f" ] || continue
+				. "$f"
+				if [ -n "$initrd_generator" ]; then
+					echo "$initrd_generator"
+					break 2
+				fi
+			done
+		done
+	fi
+}
+
+initrd_generator="$(get_kernel_install_dropins_conf)"
+if [ -z "$initrd_generator" ]; then
+	for f in \
+		/etc/kernel/install.conf \
+		/usr/local/lib/kernel/install.conf \
+		/usr/lib/kernel/install.conf \
+		; do
+		if [ -f "$f" ]; then
+			. "$f"
+			break
+		fi
+	done
+fi
+
+# dracut is the default initrd generator
+: ${initrd_generator:=dracut}
+
 : ${DRACUT:=/usr/bin/dracut}
-if [ ! -x "$DRACUT" ]; then
-    echo "${0##*/}: dracut is not installed, not rebuilding the initrd" >&2
-    exit 0
+if [ "$initrd_generator" = "dracut" ] && [ ! -x "$DRACUT" ]; then
+	echo "${0##*/}: dracut is not installed, not rebuilding the initrd" >&2
+	exit 0
+fi
+
+: ${MKOSI_INITRD:=/usr/bin/mkosi-initrd}
+[ "$initrd_generator" = "mkosi" ] && initrd_generator="mkosi-initrd"
+if [ "$initrd_generator" = "mkosi-initrd" ]; then
+	if [ ! -x "$MKOSI_INITRD" ]; then
+		echo "${0##*/}: mkosi-initrd is not installed, not rebuilding the initrd" >&2
+		exit 0
+	else
+		# FIXME: mkosi-initrd fails to cp files directly to /boot
+		MKOSI_INITRD_STAGING_DIR="$(mktemp -p /var/tmp/ -d -t mkosi-initrd-stagingXXXXXXXX)"
+		if [ ! -d "$MKOSI_INITRD_STAGING_DIR" ]; then
+			echo "${0##*/}: failed to create mkosi-initrd staging directory" >&2
+			exit 1
+		fi
+	fi
 fi
 
 if [ -e "/usr/bin/sdbootutil" ] && /usr/bin/sdbootutil is-installed; then
-    is_sdbootutil=1
+	is_sdbootutil=1
 fi
 
 dir=/run/regenerate-initrd
@@ -45,12 +115,21 @@ fi
 
 for f in "$dir"/*; do
 	case $f in
-	    "$dir/*")
+		"$dir/*")
 		[ -e "$f" ] || break;;
 	esac
 	# check if we are in a build chroot
-	if ! [  -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
-		echo "Please run \"$DRACUT -f --regenerate-all\" as soon as your system is complete." >&2
+	if ! [  -f /etc/fstab -a ! -e /.buildenv ]; then
+		case "$initrd_generator" in
+			"dracut")
+				echo "Please run \"$DRACUT -f --regenerate-all\" as soon as your system is complete." >&2
+				;;
+			"mkosi-initrd")
+				# FIXME: mkosi-initrd does not provide anything like --regenerate-all yet
+				echo "Please regenerate all the initrds with \"$MKOSI_INITRD\" as soon as your system is complete." >&2
+				echo "WARNING: mkosi-initrd cannot generate the initrd directly into /boot, you need to use an intermediate directory." >&2
+				;;
+		esac
 		rm "$dir"/*
 		exit 0
 	fi
@@ -66,7 +145,24 @@ if test -e "$dir/all"; then
 		if [ -n "$is_sdbootutil" ]; then
 			/usr/bin/sdbootutil --no-reuse-initrd add-all-kernels
 		else
-			"$DRACUT" -f --regenerate-all
+			case "$initrd_generator" in
+				"dracut")
+					"$DRACUT" -f --regenerate-all
+					;;
+				"mkosi-initrd")
+					# FIXME: mkosi-initrd does not provide anything like --regenerate-all yet
+					for d in /lib/modules/*; do
+						[ -d "$d" ] || continue
+						kver=${d##*/}
+						if "$MKOSI_INITRD" --kernel-version "$kver" -O "$MKOSI_INITRD_STAGING_DIR" -o "initrd-$kver" \
+							&& chmod 600 "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"; then
+							# The staging dir will contain: initrd-<kver> -> initrd-<kver>.cpio.zst
+							cp --reflink=auto "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" "/boot/initrd-$kver"
+							rm -f "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"*
+						fi
+					done
+					;;
+			esac
 		fi
 		work_done=yes
 	}
@@ -93,12 +189,35 @@ else
 			else
 				work_done=yes
 			fi
-		elif ! "$DRACUT" -f --kver "$kver"; then
-			err=$?
 		else
-			work_done=yes
+			case "$initrd_generator" in
+				"dracut")
+					if ! "$DRACUT" -f --kver "$kver"; then
+						err=$?
+					else
+						work_done=yes
+					fi
+					;;
+				"mkosi-initrd")
+					if ! "$MKOSI_INITRD" --kernel-version "$kver" -O "$MKOSI_INITRD_STAGING_DIR" -o "initrd-$kver"; then
+						err=$?
+					elif ! chmod 600 "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"; then
+						err=$?
+					elif ! cp --reflink=auto "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" "/boot/initrd-$kver"; then
+						err=$?
+					else
+						rm -f "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"*
+						work_done=yes
+					fi
+					;;
+			esac
 		fi
 	done
+fi
+
+# Clean-up before exit
+if [ "$initrd_generator" = "mkosi-initrd" ]; then
+	rm -rf "$MKOSI_INITRD_STAGING_DIR"
 fi
 
 # For XEN/grub2 configurations, make sure the updated initrds are copied
