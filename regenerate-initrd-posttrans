@@ -64,7 +64,7 @@ if test -e "$dir/all"; then
 	rm "$dir"/*
 	[ "$SKIP_REGENERATE_INITRD_ALL" = 1 ] || {
 		if [ -n "$is_sdbootutil" ]; then
-			/usr/bin/sdbootutil --no-reuse-initrd add-all-kernels
+			/usr/bin/sdbootutil --no-reuse-initrd --default-snapshot add-all-kernels
 		else
 			"$DRACUT" -f --regenerate-all
 		fi
@@ -88,7 +88,7 @@ else
 			continue
 		}
 		if [ -n "$is_sdbootutil" ]; then
-			if ! /usr/bin/sdbootutil --no-reuse-initrd add-kernel "$kver"; then
+			if ! /usr/bin/sdbootutil --no-reuse-initrd --default-snapshot add-kernel "$kver"; then
 				err=$?
 			else
 				work_done=yes
