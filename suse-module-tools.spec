@@ -72,6 +72,7 @@ Conflicts:      dracut < 49.1
 Conflicts:      filesystem < 16
 # Adds an ordering edge (from @mls)
 Suggests:       sdbootutil
+Requires:       (sdbootutil > 1+git20240829 if sdbootutil)
 
 %description
 This package contains helper scripts for KMP installation and
