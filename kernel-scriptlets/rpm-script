@@ -325,6 +325,11 @@ case $op in
 		    "$image"-"$kernelrelease"-"$flavor" \
 		    initrd-"$kernelrelease"-"$flavor"
 	    fi
+	    if [ -L /boot/initrd ] && \
+		   { [ ! -f /boot/initrd ] || \
+			 [ "$(readlink /boot/initrd)" = "initrd-$kernelrelease-$flavor" ]; }; then
+		rm -f /boot/initrd "/boot/$image"
+	    fi
 	fi
 
 	run_cert_script "$@"
