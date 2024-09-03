@@ -133,8 +133,10 @@ update_bootloader_entry() {
 		    message_install_bl
 		fi
 	    fi
+	    create_boot_symlinks
 	else
 	    message_install_bl
+	    create_boot_symlinks
 	fi
     fi
 }
@@ -188,11 +190,21 @@ copy_or_link_legacy_files() {
 	    fi
 	fi
     done
+}
 
+create_boot_symlinks() {
+    broken=
     for x in /boot/"$image" /boot/initrd; do
-	rm -f "$x"
-	ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
+	[ -f "$x-$kernelrelease-$flavor" ] || broken=yes
     done
+    if [ "$broken" ]; then
+	echo "ERROR: cannot create symlinks /boot/$image and /boot/initrd" >&2
+    else
+	for x in /boot/"$image" /boot/initrd; do
+	    rm -f "$x"
+	    ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
+	done
+    fi
     rm -f /boot/.vmlinuz.hmac
     [ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
 	ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
