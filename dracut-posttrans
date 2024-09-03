@@ -1,0 +1,26 @@
+#!/bin/sh
+
+: "${DRACUT:=/usr/bin/dracut}"
+
+if [ ! -x "$DRACUT" ]; then
+	echo "${0##*/}: dracut is not installed, not rebuilding the initrd." >&2
+	exit 0
+fi
+
+initrd_warn_chroot_build() {
+	echo "Please run \"$DRACUT -f --regenerate-all\" as soon as your system is complete." >&2
+}
+
+initrd_regenerate() {
+	local kver="$1"
+	"$DRACUT" -f --kver "$kver"
+	return $?
+}
+
+initrd_regenerate_all() {
+	"$DRACUT" -f --regenerate-all
+}
+
+initrd_cleanup() {
+	:
+}

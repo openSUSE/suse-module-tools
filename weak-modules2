@@ -56,7 +56,9 @@
 # kmps: list of kmps, newest first
 #
 
-: ${DRACUT:=/usr/bin/dracut}
+: "${DRACUT:=/usr/bin/dracut}"
+: "${MKOSI_INITRD:=/usr/bin/mkosi-initrd}"
+
 find_lsinitrd() {
     local lsi
     LSINITRD=
@@ -98,6 +100,24 @@ find_sdbootutil() {
 	SDBOOTUTIL="/usr/bin/sdbootutil"
     fi
     dlog "SDBOOTUTIL=$SDBOOTUTIL"
+}
+
+find_initrd_generator() {
+    INITRD_GENERATOR="$(. /etc/sysconfig/bootloader 2>/dev/null && echo "$INITRD_GENERATOR")"
+
+    # dracut is the default initrd generator
+    if [ -z "$INITRD_GENERATOR" ]; then
+	INITRD_GENERATOR="dracut"
+    elif [ "$INITRD_GENERATOR" = "mkosi" ]; then
+	INITRD_GENERATOR="mkosi-initrd"
+    fi
+
+    [ "$INITRD_GENERATOR" = "dracut" ] || [ "$INITRD_GENERATOR" = "mkosi-initrd" ] || {
+	echo "ERROR: the initrd generator \"$INITRD_GENERATOR\" configured in /etc/sysconfig/bootloader is not supported." >&2
+	exit 1
+    }
+
+    dlog "INITRD_GENERATOR=$INITRD_GENERATOR"
 }
 
 find_usrmerge_boot() {
@@ -453,7 +473,7 @@ DRACUT_CONFDIR=/etc/dracut.conf.d
 DRACUT_BUILTIN_CONFDIR=/usr/lib/dracut/dracut.conf.d
 GET_DRACUT_DRIVERS=/usr/lib/module-init-tools/get_dracut_drivers
 
-get_initrd_basenames() {
+get_dracut_basenames() {
     local setpriv=$(command -v setpriv)
     local conf= cf
 
@@ -479,6 +499,24 @@ $(cat "$cf")"
 		   "$GET_DRACUT_DRIVERS" "$conf"
 }
 
+get_mkosi_initrd_basenames() {
+    # TODO: get drivers from mkosi-initrd conf (KernelModulesInclude=, KernelModulesExclude=)
+    get_current_basenames "$1"
+}
+
+get_initrd_basenames() {
+    local krel=$1
+
+    case "$INITRD_GENERATOR" in
+	"dracut")
+	    get_dracut_basenames "$krel"
+	    ;;
+	"mkosi-initrd")
+	    get_mkosi_initrd_basenames "$krel"
+	    ;;
+    esac
+}
+
 # test if rebuilding initrd is needed for $krel.
 # stdin - list of changed modules ("_kernel_" for the whole kernel)
 needs_initrd() {
@@ -487,12 +525,21 @@ needs_initrd() {
     # Don't generate an initrd for kdump here. It's done automatically with mkdumprd when
     # /etc/init.d/boot.kdump is called to load the kdump kernel. See mkdumprd(8) why
     # it is done this way.
-    if [[ "$krel" == *kdump* ]] ; then
+    if [[ "$krel" == *kdump* ]]; then
         return 1
     fi
 
-    if ! [ -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
-	echo "Please run \"$DRACUT -f /boot/initrd-$krel $krel\" as soon as your system is complete." >&2
+    if ! [ -f /etc/fstab -a ! -e /.buildenv ]; then
+	case "$INITRD_GENERATOR" in
+	"dracut")
+	    echo "Please run \"$DRACUT -f /boot/initrd-$krel $krel\" as soon as your system is complete." >&2
+	    ;;
+	"mkosi-initrd")
+	    # FIXME: mkosi-initrd fails to cp files directly to /boot
+	    echo "Please run \"$MKOSI_INITRD --kernel-version $krel -o initrd-$krel && \
+chmod 600 initrd-$krel && cp initrd-$krel /boot\" as soon as your system is complete." >&2
+	    ;;
+	esac
 	return 1
     fi
     # KMPs can force initrd rebuild with %kernel_module_package -b that sets
@@ -556,7 +603,18 @@ run_depmod_build_initrd() {
 		    doit "$SDBOOTUTIL" --no-reuse-initrd add-kernel "$krel"
 		elif [ -z "$SDBOOTUTIL" ]; then
 		    local initrd="$(get_current_initrd $krel)"
-		    doit "$DRACUT" -f "$initrd" $krel
+		    case "$INITRD_GENERATOR" in
+			"dracut")
+			    doit "$DRACUT" -f "$initrd" $krel
+			    ;;
+			"mkosi-initrd")
+			    # FIXME: mkosi-initrd fails to cp files directly to /boot
+			    doit "$MKOSI_INITRD" --kernel-version "$krel" -O "$tmpdir" -o "initrd-$krel" && \
+			    doit chmod 600 "$tmpdir/initrd-$krel" && \
+			    doit cp --reflink=auto "$tmpdir/initrd-$krel" "$initrd" && \
+			    doit rm -f "$tmpdir/initrd-$krel"*
+			    ;;
+		    esac
 		fi
 		status=$?
 	    fi
@@ -929,6 +987,7 @@ fi
 find_depmod
 find_lsinitrd
 find_sdbootutil
+find_initrd_generator
 
 tmpdir=$(mktemp -d /var/tmp/${0##*/}.XXXXXX)
 trap "rm -rf $tmpdir" EXIT
