@@ -108,10 +108,30 @@ update_bootloader() {
 		    message_install_bl
 		fi
 	    fi
+	    create_boot_symlinks
 	else
 	    message_install_bl
+	    create_boot_symlinks
 	fi
     fi
+}
+
+create_boot_symlinks() {
+    broken=
+    for x in /boot/"$image" /boot/initrd; do
+        [ -f "$x-$kernelrelease-$flavor" ] || broken=yes
+    done
+    if [ "$broken" ]; then
+        echo "ERROR: cannot create symlinks /boot/$image and /boot/initrd" >&2
+    else
+        for x in /boot/"$image" /boot/initrd; do
+            rm -f "$x"
+            ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
+        done
+    fi
+    rm -f /boot/.vmlinuz.hmac
+    [ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
+        ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
 }
 
 check_arm_pagesize() {
@@ -193,14 +213,6 @@ case $op in
 	if [ "$1" -gt 1 ]; then
 	    trigger_purge_kernels || script_rc=$?
 	fi
-
-	for x in /boot/"$image" /boot/initrd; do
-	    rm -f "$x"
-	    ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
-	done
-	rm -f /boot/.vmlinuz.hmac
-	[ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
-	    ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
 
 	# Add symlinks of compatible modules to /lib/modules/$krel/weak-updates/,
 	# run depmod and dracut
