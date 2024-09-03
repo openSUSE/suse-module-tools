@@ -1,0 +1,55 @@
+#!/bin/sh
+
+: "${MKOSI_INITRD:=/usr/bin/mkosi-initrd}"
+
+if [ ! -x "$MKOSI_INITRD" ]; then
+	echo "${0##*/}: mkosi-initrd is not installed, not rebuilding the initrd." >&2
+	exit 0
+fi
+
+# FIXME: mkosi-initrd fails to cp files directly to /boot
+MKOSI_INITRD_STAGING_DIR="$(mktemp -p /var/tmp/ -d -t mkosi-initrd-stagingXXXXXXXX)"
+if [ ! -d "$MKOSI_INITRD_STAGING_DIR" ]; then
+	echo "${0##*/}: failed to create mkosi-initrd staging directory." >&2
+	exit 1
+fi
+
+initrd_warn_chroot_build() {
+	# FIXME: mkosi-initrd does not provide anything like --regenerate-all yet
+	echo "Please regenerate all the initrds with \"$MKOSI_INITRD\" as soon as your system is complete." >&2
+}
+
+initrd_regenerate() {
+	local kver="$1"
+	local res
+
+	"$MKOSI_INITRD" --kernel-version "$kver" -O "$MKOSI_INITRD_STAGING_DIR" -o "initrd-$kver"
+	res=$?
+	[ $res -ne 0 ] && return $res
+
+	chmod 600 "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"
+	res=$?
+	[ $res -ne 0 ] && return $res
+
+	cp --reflink=auto "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" "/boot/initrd-$kver"
+	return $?
+}
+
+initrd_regenerate_all() {
+	# FIXME: mkosi-initrd does not provide anything like --regenerate-all yet
+	for d in /lib/modules/*; do
+		[ -d "$d" ] || continue
+		kver=${d##*/}
+		if "$MKOSI_INITRD" --kernel-version "$kver" -O "$MKOSI_INITRD_STAGING_DIR" -o "initrd-$kver" \
+			&& chmod 600 "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"; then
+			# The staging dir will contain: initrd-<kver> -> initrd-<kver>.cpio.zst
+			cp --reflink=auto "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" "/boot/initrd-$kver"
+			rm -f "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"*
+		fi
+	done
+}
+
+initrd_cleanup() {
+	rm -rf "$MKOSI_INITRD_STAGING_DIR"
+}
+

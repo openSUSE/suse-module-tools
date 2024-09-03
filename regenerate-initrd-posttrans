@@ -15,14 +15,29 @@
 # to have all initrds generated. This script is called from posttrans
 # and takes care of generating the initrds
 
-: ${DRACUT:=/usr/bin/dracut}
-if [ ! -x "$DRACUT" ]; then
-    echo "${0##*/}: dracut is not installed, not rebuilding the initrd" >&2
-    exit 0
-fi
+# get the configured INITRD_GENERATOR from /etc/sysconfig/bootloader
+INITRD_GENERATOR="$(. /etc/sysconfig/bootloader 2>/dev/null && echo "$INITRD_GENERATOR")"
+[ "$INITRD_GENERATOR" = "mkosi" ] && INITRD_GENERATOR="mkosi-initrd"
+
+# dracut is the default initrd generator
+: "${INITRD_GENERATOR:=dracut}"
+
+# check if the configured initrd generator is supported
+[ "$INITRD_GENERATOR" = "dracut" ] || [ "$INITRD_GENERATOR" = "mkosi-initrd" ] || {
+	echo "${0##*/}: the initrd generator \"$INITRD_GENERATOR\" configured in /etc/sysconfig/bootloader is not supported." >&2
+	echo "${0##*/}: valid options are \"dracut\" or \"mkosi-initrd\"." >&2
+	exit 1
+}
+
+# check if the specific posttrans script is available
+[ -x "/usr/lib/module-init-tools/${INITRD_GENERATOR}-posttrans" ] || {
+	echo "${0##*/}: missing required /usr/lib/module-init-tools/${INITRD_GENERATOR}-posttrans." >&2
+	exit 1
+}
+. /usr/lib/module-init-tools/"${INITRD_GENERATOR}"-posttrans
 
 if [ -e "/usr/bin/sdbootutil" ] && /usr/bin/sdbootutil is-installed; then
-    is_sdbootutil=1
+	is_sdbootutil=1
 fi
 
 dir=/run/regenerate-initrd
@@ -45,12 +60,12 @@ fi
 
 for f in "$dir"/*; do
 	case $f in
-	    "$dir/*")
+		"$dir/*")
 		[ -e "$f" ] || break;;
 	esac
 	# check if we are in a build chroot
-	if ! [  -f /etc/fstab -a ! -e /.buildenv -a -x "$DRACUT" ] ; then
-		echo "Please run \"$DRACUT -f --regenerate-all\" as soon as your system is complete." >&2
+	if [ ! -f /etc/fstab ] || [ -e /.buildenv ]; then
+		initrd_warn_chroot_build
 		rm "$dir"/*
 		exit 0
 	fi
@@ -66,7 +81,7 @@ if test -e "$dir/all"; then
 		if [ -n "$is_sdbootutil" ]; then
 			/usr/bin/sdbootutil --no-reuse-initrd --default-snapshot add-all-kernels
 		else
-			"$DRACUT" -f --regenerate-all
+			initrd_regenerate_all
 		fi
 		work_done=yes
 	}
@@ -88,18 +103,19 @@ else
 			continue
 		}
 		if [ -n "$is_sdbootutil" ]; then
-			if ! /usr/bin/sdbootutil --no-reuse-initrd --default-snapshot add-kernel "$kver"; then
-				err=$?
-			else
-				work_done=yes
-			fi
-		elif ! "$DRACUT" -f --kver "$kver"; then
+			/usr/bin/sdbootutil --no-reuse-initrd --default-snapshot add-kernel "$kver"
 			err=$?
+			[ $err -eq 0 ] && work_done=yes
 		else
-			work_done=yes
+			initrd_regenerate "$kver"
+			err=$?
+			[ $err -eq 0 ] && work_done=yes
 		fi
 	done
 fi
+
+# Clean-up before exit
+trap 'initrd_cleanup' EXIT
 
 # For XEN/grub2 configurations, make sure the updated initrds are copied
 # to the EFI system partition. See /etc/grub.d/20_linux_xen.
