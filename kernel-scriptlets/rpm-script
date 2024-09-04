@@ -133,10 +133,10 @@ update_bootloader_entry() {
 		    message_install_bl
 		fi
 	    fi
-	    create_boot_symlinks
+	    create_boot_symlinks "$kernelrelease-$flavor"
 	else
 	    message_install_bl
-	    create_boot_symlinks
+	    create_boot_symlinks "$kernelrelease-$flavor"
 	fi
     fi
 }
@@ -193,21 +193,34 @@ copy_or_link_legacy_files() {
 }
 
 create_boot_symlinks() {
+    rel_flav=$1
     broken=
     for x in /boot/"$image" /boot/initrd; do
-	[ -f "$x-$kernelrelease-$flavor" ] || broken=yes
+	[ -f "$x-$rel_flav" ] || broken=yes
     done
     if [ "$broken" ]; then
 	echo "ERROR: cannot create symlinks /boot/$image and /boot/initrd" >&2
     else
 	for x in /boot/"$image" /boot/initrd; do
 	    rm -f "$x"
-	    ln -s "${x##*/}-$kernelrelease-$flavor" "$x"
+	    ln -s "${x##*/}-$rel_flav" "$x"
 	done
     fi
     rm -f /boot/.vmlinuz.hmac
-    [ ! -e "/boot/.vmlinuz-$kernelrelease-$flavor.hmac" ] ||
-	ln -s ".vmlinuz-$kernelrelease-$flavor.hmac" /boot/.vmlinuz.hmac
+    [ ! -e "/boot/.vmlinuz-$rel_flav.hmac" ] ||
+	ln -s ".vmlinuz-$rel_flav.hmac" /boot/.vmlinuz.hmac
+}
+
+find_latest_kernel() {
+    # shellcheck disable=SC2012
+    ls -rv /boot/initrd-* 2>/dev/null | \
+	while read -r _x; do
+	    [ -f "$_x" ] || continue
+	    _rel=${_x#/boot/initrd-}
+	    [ -f "/boot/$image-$_rel" ] || continue
+	    echo "$_rel"
+	    return
+	done
 }
 
 check_arm_pagesize() {
@@ -329,6 +342,14 @@ case $op in
 		   { [ ! -f /boot/initrd ] || \
 			 [ "$(readlink /boot/initrd)" = "initrd-$kernelrelease-$flavor" ]; }; then
 		rm -f /boot/initrd "/boot/$image"
+	    fi
+	    if [ ! -f /boot/initrd ] || [ ! -f "/boot/$image" ]; then
+		latest=$(find_latest_kernel)
+		if [ "$latest" ]; then
+		    create_boot_symlinks "$latest"
+		else
+		    echo "WARNING: no installed kernel found after deinstallation of $kernelrelease-$flavor" >&2
+		fi
 	    fi
 	fi
 
