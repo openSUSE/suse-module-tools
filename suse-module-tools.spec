@@ -52,7 +52,6 @@ Requires:       /usr/bin/sed
 Requires:       coreutils
 Requires:       findutils
 Requires:       systemd-rpm-macros
-Requires:       (sdbootutil if sdbootutil)
 Requires:       rpm
 Requires(post): /usr/bin/grep
 Requires(post): /usr/bin/sed
