@@ -76,43 +76,44 @@ err=0
 work_done=
 
 if test -e "$dir/all"; then
-	rm "$dir"/*
-	[ "$SKIP_REGENERATE_INITRD_ALL" = 1 ] || {
+	if [ "$SKIP_REGENERATE_INITRD_ALL" = 1 ]; then
+		rm "$dir/all"
+	else
+		rm "$dir"/*
 		if [ -n "$is_sdbootutil" ]; then
 			/usr/bin/sdbootutil --no-reuse-initrd --default-snapshot add-all-kernels
 		else
 			initrd_regenerate_all
 		fi
 		work_done=yes
-	}
-else
-	for f in "$dir"/*; do
-		case $f in
-			"$dir/*")
-				[ -e "$f" ] || break;;
-		esac
-		rm -f "$f"
-		kver=${f##*/}
-		case "$kver" in
-			vmlinuz-*|image-*|vmlinux-*|linux-*|bzImage-*|uImage-*|Image-*|zImage-*)
-				kver=${kver#*-}
-				;;
-		esac
-		[ -d /lib/modules/"$kver" ] || {
-			echo $0: skipping invalid kernel version "$dir/$kver"
-			continue
-		}
-		if [ -n "$is_sdbootutil" ]; then
-			/usr/bin/sdbootutil --no-reuse-initrd --default-snapshot add-kernel "$kver"
-			err=$?
-			[ $err -eq 0 ] && work_done=yes
-		else
-			initrd_regenerate "$kver"
-			err=$?
-			[ $err -eq 0 ] && work_done=yes
-		fi
-	done
+	fi
 fi
+for f in "$dir"/*; do
+	case $f in
+		"$dir/*")
+			[ -e "$f" ] || break;;
+	esac
+	rm -f "$f"
+	kver=${f##*/}
+	case "$kver" in
+		vmlinuz-*|image-*|vmlinux-*|linux-*|bzImage-*|uImage-*|Image-*|zImage-*)
+			kver=${kver#*-}
+			;;
+	esac
+	[ -d /lib/modules/"$kver" ] || {
+		echo "$0: skipping invalid kernel version $dir/$kver"
+		continue
+	}
+	if [ -n "$is_sdbootutil" ]; then
+		/usr/bin/sdbootutil --no-reuse-initrd --default-snapshot add-kernel "$kver"
+		err=$?
+		[ $err -eq 0 ] && work_done=yes
+	else
+		initrd_regenerate "$kver"
+		err=$?
+		[ $err -eq 0 ] && work_done=yes
+	fi
+done
 
 # Clean-up before exit
 trap 'initrd_cleanup' EXIT
