@@ -133,12 +133,11 @@ update_bootloader_entry() {
 		    message_install_bl
 		fi
 	    fi
-	    create_boot_symlinks "$kernelrelease-$flavor"
 	else
 	    message_install_bl
-	    create_boot_symlinks "$kernelrelease-$flavor"
 	fi
     fi
+    create_boot_symlinks "$kernelrelease-$flavor"
 }
 
 check_space_in_boot() {
@@ -195,6 +194,8 @@ copy_or_link_legacy_files() {
 create_boot_symlinks() {
     rel_flav=$1
     broken=
+
+    [ -n "$is_sdbootutil" ] && return
     for x in /boot/"$image" /boot/initrd; do
 	[ -f "$x-$rel_flav" ] || broken=yes
     done
