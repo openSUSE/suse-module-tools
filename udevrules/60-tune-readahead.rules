@@ -1,0 +1,17 @@
+# --- DO NOT EDIT THIS PART ----
+SUBSYSTEM!="block", GOTO="readahead_end"
+ACTION!="add|change", GOTO="readahead_end"
+ENV{DEVTYPE}!="disk", GOTO="readahead_end"
+TEST!="%S%p/queue/read_ahead_kb", GOTO="readahead_end"
+
+# For dm devices, the relevant events are "change" events, see 10-dm.rules
+ACTION!="change", KERNEL=="dm-*", GOTO="readahead_end"
+
+# --- EDIT BELOW HERE after copying to /etc/udev/rules.d ---
+
+# Set maximum readahead to 1MB
+ATTR{queue/read_ahead_kb}="1024"
+
+# --- EDIT ABOVE HERE after copying to /etc/udev/rules.d ---
+LABEL="readahead_end"
+
