@@ -123,8 +123,8 @@ create_boot_symlinks() {
     for x in /boot/"$image" /boot/initrd; do
 	[ -f "$x-$rel_flav" ] || broken=yes
     done
-    if [ "$broken" ]; then
-        echo "ERROR: cannot create symlinks /boot/$image and /boot/initrd" >&2
+    if [ "$broken" ] && [ ! -e /.buildenv ]; then
+	echo "ERROR: cannot create symlinks /boot/$image and /boot/initrd" >&2
     else
 	for x in /boot/"$image" /boot/initrd; do
 	    rm -f "$x"
