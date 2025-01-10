@@ -82,10 +82,13 @@ if test -e "$dir/all"; then
 		rm "$dir"/*
 		if [ -n "$is_sdbootutil" ]; then
 			/usr/bin/sdbootutil --no-reuse-initrd --default-snapshot add-all-kernels
+			err=$?
+			[ $err -eq 0 ] && work_done=yes
 		else
 			initrd_regenerate_all
+			err=$?
+			[ $err -eq 0 ] && work_done=yes
 		fi
-		work_done=yes
 	fi
 fi
 for f in "$dir"/*; do

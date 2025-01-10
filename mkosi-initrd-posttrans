@@ -32,19 +32,22 @@ initrd_regenerate() {
 	[ $res -ne 0 ] && return $res
 
 	cp --reflink=auto "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" "/boot/initrd-$kver"
-	return $?
 }
 
 initrd_regenerate_all() {
+	local d
+
 	# FIXME: mkosi-initrd does not provide anything like --regenerate-all yet
 	for d in /lib/modules/*; do
 		[ -d "$d" ] || continue
 		kver=${d##*/}
+		# The staging dir will contain: initrd-<kver> -> initrd-<kver>.cpio.zst
 		if "$MKOSI_INITRD" --kernel-version "$kver" -O "$MKOSI_INITRD_STAGING_DIR" -o "initrd-$kver" \
-			&& chmod 600 "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"; then
-			# The staging dir will contain: initrd-<kver> -> initrd-<kver>.cpio.zst
-			cp --reflink=auto "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" "/boot/initrd-$kver"
+			&& chmod 600 "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" \
+			&& cp --reflink=auto "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" "/boot/initrd-$kver"; then
 			rm -f "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"*
+		else
+			return $?
 		fi
 	done
 }

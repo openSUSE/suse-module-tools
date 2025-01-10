@@ -14,7 +14,6 @@ initrd_warn_chroot_build() {
 initrd_regenerate() {
 	local kver="$1"
 	"$DRACUT" -f --kver "$kver"
-	return $?
 }
 
 initrd_regenerate_all() {
