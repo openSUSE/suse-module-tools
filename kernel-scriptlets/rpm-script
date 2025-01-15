@@ -191,6 +191,12 @@ copy_or_link_legacy_files() {
     done
 }
 
+# In build environments like kiwi, we need to create the symlinks.
+# kiwi will create the missing initrd a later stage in the boot process.
+is_build_environment() {
+    [ -e /.buildenv ] || [ -e /image/config.xml ]
+}
+
 create_boot_symlinks() {
     rel_flav=$1
     broken=
@@ -199,7 +205,7 @@ create_boot_symlinks() {
     for x in /boot/"$image" /boot/initrd; do
 	[ -f "$x-$rel_flav" ] || broken=yes
     done
-    if [ "$broken" ] && [ ! -e /.buildenv ]; then
+    if [ "$broken" ] && ! is_build_environment; then
 	echo "ERROR: cannot create symlinks /boot/$image and /boot/initrd" >&2
     else
 	for x in /boot/"$image" /boot/initrd; do
