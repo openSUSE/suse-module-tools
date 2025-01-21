@@ -450,13 +450,12 @@ dropindirs_sort() {
 
 get_current_initrd() {
     local krel=$1
-    local initrd
+    local initrd="/boot/initrd-$krel"
     if [ -n "$SDBOOTUTIL" ]; then
 	if [ -z "$TRANSACTIONAL_UPDATE" ] && [ -s '/etc/kernel/entry-token' ]; then
-	    read -r initrd <<<"$(sdbootutil --entry-keys=initrd show-entry $krel)"
+	    read -r _ initrd <<<"$(sdbootutil --entry-keys=initrd show-entry $krel)"
+	    initrd="/boot/efi$initrd"
 	fi
-    else
-	initrd="/boot/initrd-$krel"
     fi
     echo "$initrd"
 }
