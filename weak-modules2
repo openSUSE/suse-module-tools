@@ -361,7 +361,7 @@ find_kmps() {
     local basename=$1 flavor=$2
     local kmp
 
-    for kmp in $(rpm -qa --qf '%{n}-%{v}-%{r}\n' --nodigest --nosignature "$basename-kmp-$flavor"); do
+    for kmp in $(rpm -qa --qf '%{n}-%{v}-%{r}\n' --nodigest --nosignature "$basename-kmp-$flavor*"); do
 	dlog "find_kmps: looking at $kmp"
 	if rpm -q --qf '[%{providename}\n]' --nodigest --nosignature "$kmp" | \
 	    grep -q '^kmp_in_kernel$'; then
