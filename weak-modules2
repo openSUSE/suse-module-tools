@@ -337,7 +337,7 @@ check_kmp() {
     set -- $(sed -re 's:^/usr/lib/modules/([^/]+)/.*:\1:' \
 		 $tmpdir/modules-$kmp \
 	     | sort -u)
-    if [ $# -ne 1 ]; then
+    if [ $# -gt 1 ]; then
 	echo "Error: package $kmp seems to contain modules for multiple kernel versions" >&2
 	return 1
     fi
