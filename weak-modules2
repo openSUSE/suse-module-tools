@@ -534,9 +534,8 @@ needs_initrd() {
 	    echo "Please run \"$DRACUT -f /boot/initrd-$krel $krel\" as soon as your system is complete." >&2
 	    ;;
 	"mkosi-initrd")
-	    # FIXME: mkosi-initrd fails to cp files directly to /boot
-	    echo "Please run \"$MKOSI_INITRD --kernel-version $krel -o initrd-$krel && \
-chmod 600 initrd-$krel && cp initrd-$krel /boot\" as soon as your system is complete." >&2
+	    echo "Please run \"$MKOSI_INITRD --kernel-version $krel -O /boot -o initrd-$krel\" \
+as soon as your system is complete." >&2
 	    ;;
 	esac
 	return 1
@@ -607,11 +606,7 @@ run_depmod_build_initrd() {
 			    doit "$DRACUT" -f "$initrd" $krel
 			    ;;
 			"mkosi-initrd")
-			    # FIXME: mkosi-initrd fails to cp files directly to /boot
-			    doit "$MKOSI_INITRD" --kernel-version "$krel" -O "$tmpdir" -o "initrd-$krel" && \
-			    doit chmod 600 "$tmpdir/initrd-$krel" && \
-			    doit cp --reflink=auto "$tmpdir/initrd-$krel" "$initrd" && \
-			    doit rm -f "$tmpdir/initrd-$krel"*
+			    doit "$MKOSI_INITRD" --kernel-version "$krel" -O "/boot" -o "initrd-$krel"
 			    ;;
 		    esac
 		fi

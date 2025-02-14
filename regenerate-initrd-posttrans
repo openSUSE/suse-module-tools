@@ -118,9 +118,6 @@ for f in "$dir"/*; do
 	fi
 done
 
-# Clean-up before exit
-trap 'initrd_cleanup' EXIT
-
 # For XEN/grub2 configurations, make sure the updated initrds are copied
 # to the EFI system partition. See /etc/grub.d/20_linux_xen.
 # The test for xen*.gz is simplistic but should be correct here.
