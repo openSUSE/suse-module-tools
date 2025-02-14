@@ -19,7 +19,3 @@ initrd_regenerate() {
 initrd_regenerate_all() {
 	"$DRACUT" -f --regenerate-all
 }
-
-initrd_cleanup() {
-	:
-}

@@ -7,13 +7,6 @@ if [ ! -x "$MKOSI_INITRD" ]; then
 	exit 0
 fi
 
-# FIXME: mkosi-initrd fails to cp files directly to /boot
-MKOSI_INITRD_STAGING_DIR="$(mktemp -p /var/tmp/ -d -t mkosi-initrd-stagingXXXXXXXX)"
-if [ ! -d "$MKOSI_INITRD_STAGING_DIR" ]; then
-	echo "${0##*/}: failed to create mkosi-initrd staging directory." >&2
-	exit 1
-fi
-
 initrd_warn_chroot_build() {
 	# FIXME: mkosi-initrd does not provide anything like --regenerate-all yet
 	echo "Please regenerate all the initrds with \"$MKOSI_INITRD\" as soon as your system is complete." >&2
@@ -21,17 +14,7 @@ initrd_warn_chroot_build() {
 
 initrd_regenerate() {
 	local kver="$1"
-	local res
-
-	"$MKOSI_INITRD" --kernel-version "$kver" -O "$MKOSI_INITRD_STAGING_DIR" -o "initrd-$kver"
-	res=$?
-	[ $res -ne 0 ] && return $res
-
-	chmod 600 "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"
-	res=$?
-	[ $res -ne 0 ] && return $res
-
-	cp --reflink=auto "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" "/boot/initrd-$kver"
+	"$MKOSI_INITRD" --kernel-version "$kver" -O "/boot" -o "initrd-$kver"
 }
 
 initrd_regenerate_all() {
@@ -41,18 +24,6 @@ initrd_regenerate_all() {
 	for d in /lib/modules/*; do
 		[ -d "$d" ] || continue
 		kver=${d##*/}
-		# The staging dir will contain: initrd-<kver> -> initrd-<kver>.cpio.zst
-		if "$MKOSI_INITRD" --kernel-version "$kver" -O "$MKOSI_INITRD_STAGING_DIR" -o "initrd-$kver" \
-			&& chmod 600 "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" \
-			&& cp --reflink=auto "$MKOSI_INITRD_STAGING_DIR/initrd-$kver" "/boot/initrd-$kver"; then
-			rm -f "$MKOSI_INITRD_STAGING_DIR/initrd-$kver"*
-		else
-			return $?
-		fi
+		"$MKOSI_INITRD" --kernel-version "$kver" -O "/boot" -o "initrd-$kver" || return $?
 	done
 }
-
-initrd_cleanup() {
-	rm -rf "$MKOSI_INITRD_STAGING_DIR"
-}
-
