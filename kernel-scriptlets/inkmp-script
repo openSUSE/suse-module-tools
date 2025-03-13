@@ -95,7 +95,7 @@ case $op in
 	# This is similar to the check for $system_map in rpm-script.
 	for __i in "${!modules[@]}"; do
 	    if [[ -e "${modules[$__i]}" ]]; then
-		unset -v 'modules["$__i"]'
+		unset -v 'modules[$__i]'
 	    fi
 	done
 	if [[ "${#modules[@]}" == 0 ]]; then
