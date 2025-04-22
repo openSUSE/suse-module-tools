@@ -23,6 +23,7 @@ initrd_regenerate_all() {
 	# FIXME: mkosi-initrd does not provide anything like --regenerate-all yet
 	for d in /lib/modules/*; do
 		[ -d "$d" ] || continue
+		[ -f "$d/modules.dep" ] || [ -f "$d/modules.dep.bin" ] || continue
 		kver=${d##*/}
 		"$MKOSI_INITRD" --kernel-version "$kver" -O "/boot" -o "initrd-$kver" || return $?
 	done
