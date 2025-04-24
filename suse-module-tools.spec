@@ -53,6 +53,7 @@ Requires:       coreutils
 Requires:       findutils
 Requires:       systemd-rpm-macros
 Requires:       rpm
+Requires:       util-linux
 Requires(post): /usr/bin/grep
 Requires(post): /usr/bin/sed
 Requires(post): coreutils
