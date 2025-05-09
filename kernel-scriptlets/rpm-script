@@ -169,11 +169,23 @@ check_space_in_boot() {
     fi
 }
 
+usr_or_boot_is_mountpoint() {
+    cut -d" " -f 5 </proc/self/mountinfo | { \
+	while read -r _mp; do
+	    case $_mp in
+		/boot|/usr)
+		    return 0;;
+	    esac
+	done
+	return 1
+    }
+}
+
 copy_or_link_legacy_files() {
     # compat stuff for /boot.
     # if /boot and /usr are not separate partitions we can just link
     # the kernel there to save space. Otherwise copy.
-    if mountpoint -q /boot || mountpoint -q /usr; then
+    if usr_or_boot_is_mountpoint; then
 	copy_or_link="cp -a --remove-destination"
 	separate_boot='1'
     else
