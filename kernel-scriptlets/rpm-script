@@ -155,7 +155,8 @@ check_space_in_boot() {
     # plugin (that calls sdbootutil add-all-kernels)
     #
     if [ "$YAST_IS_RUNNING" != "" ]; then
-	mydf="$( POSIXLY_CORRECT=1 df -P /boot/ | awk '/^(\/|-[[:blank:]])/{ print $4}' )"
+	mydf="$( POSIXLY_CORRECT=1 df -P /boot/ 2>/dev/null | tail -n 1 | \
+		 while read -r _m _t _u _a _r; do echo "$_a"; done )"
 	if test "$mydf" != "" ; then
 	    echo "Free diskspace below /boot: $mydf blocks"
 	    # echo "512 byte blocks: $(( 2 * 1024 * 20 ))"
