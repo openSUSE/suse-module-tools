@@ -1,4 +1,5 @@
 #!/bin/sh
+[ ! "$KERNEL_PACKAGE_SCRIPT_TRACE" ] || set -x
 
 op=${0##*-}
 
