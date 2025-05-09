@@ -881,15 +881,6 @@ usage() {
 
 ##############################################################################
 
-save_argv=("$@")
-options=`getopt -o vh --long add-kernel,remove-kernel,add-kmp,remove-kmp \
-                      --long add-kernel-modules,remove-kernel-modules \
-		      --long usage,help,verbose,dry-run,debug,logfile: -- "$@"`
-if [ $? -ne 0 ]; then
-    usage >&2
-    exit 1
-fi
-eval set -- "$options"
 mode=
 opt_logfile=$WM2_LOGFILE
 case $WM2_VERBOSE in
@@ -908,7 +899,7 @@ case $WM2_DEBUG in
 	opt_debug=
 	;;
 esac
-while :; do
+while [[ $# > 0 ]] ; do
     case "$1" in
     --add-kernel | --remove-kernel | --add-kernel-modules | \
     --remove-kernel-modules | --add-kmp | --remove-kmp )
@@ -935,8 +926,11 @@ while :; do
 	help
 	exit 0
 	;;
-    --)
-	shift
+    -*)
+	usage >&2
+	exit 1
+	;;
+    *)
 	break
 	;;
     esac
