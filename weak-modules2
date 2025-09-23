@@ -336,13 +336,23 @@ find_kmps() {
     dlog "find_kmps: kmps found: " $(cat $tmpdir/kmps)
 }
 
+other_symlinks() {
+    local module=$1 krel=$2 file
+    filename=${module#/lib/modules/*/updates/*/}
+    find /lib/modules/$krel/weak-updates/*/ -name "${filename%.ko*}.ko*" -printf "%p "
+}
+
 __previous_version_of_kmp() {
     local new_kmp=$1 krel=$2
     local module symlink old_kmp
     
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
-	[ -e "$symlink" ] || continue
+	[ -e "$symlink" ] || {
+	    symlink=($(other_symlinks $module $krel))
+	    [ ${#symlink[*]} -gt 0 ] || continue
+	    [ ${#symlink[*]} -eq 1 ] || { echo "Error: Module ${module##*/} exists more than once for kernel $krel!"; }
+	}
 	[ -L "$symlink" ] || return
 
 	old_kmp=$(grep -l "$(readlink "$symlink")" $tmpdir/modules-* | sed 's:.*/modules-::' ) || return
