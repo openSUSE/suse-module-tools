@@ -339,8 +339,10 @@ find_kmps() {
 }
 
 other_symlinks() {
-    local module=$1 krel=$2 file
-    filename=${module#/lib/modules/*/updates/*/}
+    local module=$1 krel=$2 filename
+    filename=${module#/lib/module}
+    filename=${filename#/kmp}
+    filename=${filename#/*/updates/*/}
     find /lib/modules/$krel/weak-updates/*/ -name "${filename%.ko*}.ko*" -printf "%p "
 }
 
