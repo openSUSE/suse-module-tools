@@ -302,7 +302,6 @@ __can_replace_kmp() {
     local old_kmp=$1 new_kmp=$2 krel=$3
 
     local basedir=$tmpdir/$krel
-    local weak_updates=/usr/lib/modules/$krel/weak-updates/
 
     [ -d "$basedir" ] || \
 	create_temporary_modules_dir "$krel" "$basedir"
