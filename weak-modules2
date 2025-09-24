@@ -390,6 +390,32 @@ find_kmps() {
     dlog "find_kmps: kmps found: " $(cat $tmpdir/kmps)
 }
 
+# Whether a given KMP can be installed is checked in can_replace_kmp(),
+# which should actually have been called can_install_kmp().
+# One test is basenames_are_unique(). This test would always fail
+# if any module in $new_kmp was contained in any other already
+# installed KMP. But KMP updates must be possible. Therefore symlinks for
+# at most one such older version of $new_kmp can be removed for $krel in
+# can_replace_kmp() before trying to adding symlinks to $new_kmp.
+# This avoids duplicate module names.
+#
+# previous_version_of_kmp() tries to find a candidate for this older
+# version. It will only return a candidate if all these conditions are
+# fulfilled:
+#
+# a) the paths that will be symlinks to $new_kmp modules must be symlinks
+#    already (don't replace regular files).
+# b) the package names of $old_kmp and $new_kmp must be equal
+#    ("Obsoletes:" won't work).
+# c) all current symlinks must point to an older version of the KMP
+#    (note: $tmpdir/kmps contains the KMPs in reverse rpmsort order).
+#
+# The function does not bother with checking if $old_kmp is unique.
+# No more than one will be returned anyway. If the symlinks for $krel point
+# to files from different KMPs (shouldn't happen), only one
+# of them will be a candidate for removal, and can_replace_kmp() will
+# fail.
+
 __previous_version_of_kmp() {
     local new_kmp=$1 krel=$2
     local module symlink old_kmp
