@@ -358,21 +358,43 @@ can_replace_kmp() {
     return $res
 }
 
+krel_from_nvr() {
+    local nv=${1%-*}
+    local v=${nv##*-}
+    local kver=${v#*_k}
+    local n=${nv%-*}
+    local flavor=${n##*-}
+
+    [[ "$kver" && "$flavor" ]] || {
+	echo "$0: ERROR: cannot parse kernel version from \"$nvr\"" >&2
+    }
+    echo "${kver//_/-}-$flavor"
+}
+
 # Figure out which modules a kmp contains
 check_kmp() {
     local kmp=$1
+    local krel=$(krel_from_nvr "$kmp")
 
     # Make sure all modules are for the same kernel
-    set -- $(sed -re 's:^/usr/lib/modules/([^/]+)/.*:\1:' \
+    set -- $(sed -nre 's:^/usr/lib/modules/([1-9][0-9]*\.[0-9]+\.[0-9]+-[^/-]+-[a-z]+)/.*:\1:p' \
 		 $tmpdir/modules-$kmp \
 	     | sort -u)
-    if [ $# -ne 1 ]; then
-	echo "Error: package $kmp seems to contain modules for multiple" \
+    if [[ $# -gt 1 ]]; then
+	echo "$0: ERROR: package $kmp seems to contain modules for multiple" \
 	     "kernel versions" >&2
 	return 1
+    elif [[ $# -eq 1 ]]; then
+	if [[ "$krel" != "$1" ]]; then
+	    echo "$0: WARNING: package $kmp contains modules for "
+	    "non-matching kernel $1" >&2
+	fi
+	krel=$1
+    else
+	[[ "$krel" ]] || return 1
     fi
-    echo $1 > $tmpdir/krel-$kmp
-    dlog "check_kmp: $kmp contains modules for $1"
+    echo "$krel" > "$tmpdir/krel-$kmp"
+    dlog "check_kmp: $kmp contains modules for $krel"
 
     # Make sure none of the modules are in kernel/ or weak-updates/
     if grep -qE -e '^/usr/lib/modules/[^/]+/(kernel|weak-updates)/' \
