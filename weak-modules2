@@ -422,7 +422,7 @@ find_kmps() {
 	    continue
 	fi
 	rpm -ql --nodigest --nosignature "$kmp" \
-	    | grep -Ee '^/usr/lib/modules/[^/]+/.+\.ko(\.[gx]z|\.zst)?$' \
+	    | grep -Ee '^/[^/]+/.+\.ko(\.[gx]z|\.zst)?$' \
 	    > $tmpdir/modules-$kmp
 	if [ $? != 0 ]; then
 	    echo "WARNING: $kmp does not contain any kernel modules" >&2
