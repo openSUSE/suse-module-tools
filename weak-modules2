@@ -188,6 +188,7 @@ create_temporary_modules_dir() {
 
     eval "$(find $modules_dir -path "$modules_dir/modules.*" -prune \
 		-o -path "$modules_dir/kernel" -prune \
+		-o -path "$modules_dir/livepatch" -prune \
 		-o -type d -printf "mkdir -p $opt_v $basedir%p\n" \
 		-o -printf "ln -s $opt_v %p $basedir%p\n"
            )"
