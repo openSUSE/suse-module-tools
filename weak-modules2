@@ -165,10 +165,35 @@ strip_mod_extensions() {
 }
 
 # Name of the symlink that makes a module available to a given kernel
+# If the KMP is installed a kernel directory, use the relative path
+# in the kernel directory below weak-updates/.
+# Otherwise if the path ends in /updates/, use that as relative path.
+# Otherwise, simply install the link under weak-updates directly.
 symlink_to_module() {
     local module=$1 krel=$2
+    local dirname=${module%/*}
+    local is_kdir=
+    local prefix=/usr/lib/modules
 
-    echo /usr/lib/modules/$krel/weak-updates/${module#/usr/lib/modules/*/}
+    [[ "$dirname" == /* ]] || {
+	echo "$0: ERROR: module path \"$module\" isn't absolute" >&2
+	return
+    }
+    # Detect a kernel directory by presence of modules.dep.bin
+    while  [[ ! "$dirname" =~ ^/[^/]*$ ]]; do
+	[[ -f "$dirname/modules.dep.bin" ]] && {
+	    is_kdir=yes
+	    break
+	}
+	dirname=${dirname%/*}
+    done
+    if [[ "$is_kdir" ]]; then
+	echo "$prefix/$krel/weak-updates/${module#$dirname/}"
+    elif [[ "${module%/*}" == */updates ]]; then
+	echo "$prefix/$krel/weak-updates/updates/${module##*/}"
+    else
+	echo "$prefix/$krel/weak-updates/${module##*/}"
+    fi
 }
 
 # Is a kmp already present in or linked to from this kernel?
@@ -181,7 +206,9 @@ __kmp_is_present() {
     local module symlink
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
-	[ $module -ef $symlink -o $module = "$(readlink $symlink)" ] || return 1
+	# -ef: true if both sides refer to the same device/inode
+	# It handles empty arguments correctly
+	[[ "$module" -ef "$symlink" || "$module" = "$(readlink "$symlink")" ]] || return 1
     done < $tmpdir/modules-$kmp
 
     return 0
@@ -203,6 +230,7 @@ add_kmp_modules() {
     local module symlink
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
+	[[ "$symlink" ]] || continue
 	doit mkdir -p ${opt_debug:+-v} $basedir${symlink%/*} || exit 1
 	doit ln -sf ${opt_debug:+-v} $module $basedir$symlink || exit 1
 	dlog "add_kmp_modules: added $module to $krel"
@@ -218,6 +246,7 @@ remove_kmp_modules() {
     local module symlink
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
+	[[ "$symlink" ]] || continue
 	doit rm -f ${opt_debug:+-v} $basedir$symlink
 	dlog "remove_kmp_modules: removed $module from $krel"
     done < $tmpdir/modules-$kmp
@@ -422,6 +451,7 @@ __previous_version_of_kmp() {
     
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
+	[ "$symlink" ] || continue
 	[ -e "$symlink" ] || continue
 	[ -L "$symlink" ] || return
 
