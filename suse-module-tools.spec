@@ -198,7 +198,6 @@ fi
 exit 0
 
 %post
-%udev_rules_update
 %service_add_post %{systemd_units}
 exit 0
 
@@ -207,7 +206,6 @@ exit 0
 exit 0
 
 %postun
-%udev_rules_update
 %service_del_postun_without_restart %{systemd_units}
 exit 0
 
@@ -223,6 +221,7 @@ if [ -f %{_sysconfdir}/depmod.d/00-system.conf.rpmsave ]; then
     mv -fv %{_sysconfdir}/depmod.d/00-system.conf.rpmsave \
            %{_sysconfdir}/depmod.d/00-system.conf
 fi
+%udev_rules_update
 exit 0
 
 %files
