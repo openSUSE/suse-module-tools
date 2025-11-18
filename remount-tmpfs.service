@@ -1,0 +1,6 @@
+[Unit]
+Description=Remount tmpfs file systems
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/udev/remount-tmpfs
