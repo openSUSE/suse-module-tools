@@ -1,0 +1,8 @@
+#! /bin/sh
+# Adapt tmpfs mounts after memory hot-add operations
+# See /usr/lib/udev/rules.d/80-hotplug-cpu-mem.rules
+while read src dst fs opts unused; do
+    case $fs in
+    tmpfs) mount -o remount "$dst";;
+    esac
+done </proc/self/mounts
