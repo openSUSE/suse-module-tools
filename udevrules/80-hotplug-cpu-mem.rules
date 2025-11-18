@@ -20,11 +20,6 @@ SUBSYSTEM=="cpu", CONST{arch}=="s390*", TEST=="online", ATTR{configure}=="1", AT
 # namespaces, ...)
 #
 SUBSYSTEM=="memory", CONST{arch}!="s390x", ATTR{state}=="offline", ATTR{state}="online", \
-  RUN+="/bin/sh -c ' \
-    while read src dst fs opts unused; do \
-      case $$fs in \
-      tmpfs)  mount -o remount \"$$dst\" ;; \
-      esac \
-    done </proc/self/mounts"
+  RUN+="/usr/bin/systemctl --no-block start remount-tmpfs.service"
 
 LABEL="hotplug_cpu_end"
