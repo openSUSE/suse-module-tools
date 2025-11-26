@@ -15,16 +15,13 @@ LABEL="hotplug_cpu_end"
 # Hotplug physical memory
 #
 SUBSYSTEM!="memory", GOTO="hotplug_memory_end"
-#
-# Hotplug physical memory. Instances of tmpfs are remounted so their
-# size are recalculated. This might be needed if some sizes were
-# specified relative to the total amount of memory (boo#869603). For
-# now make it simple and remount all tmpfs regardless of how their
-# size are specified. It should be handled by the kernel as it has a
-# lot of shortcomings anyways (tmpfs mounted by other processes, mount
-# namespaces, ...)
-#
-ACTION=="add", CONST{arch}!="s390x", ATTR{state}=="offline", ATTR{state}="online", \
-  RUN+="/usr/bin/systemctl --no-block start remount-tmpfs.service"
+# Automatically set new memory devices online
+# This causes a follow-up uevent with ACTION=="online"
+ACTION=="add", CONST{arch}!="s390x", ATTR{state}=="offline", ATTR{state}="online"
 
+# When memory size increases because memory device become online, instances of
+# tmpfs are remounted so that their size is recalculated (boo#869603).
+# This only affects tmpfs instances that are mounted with an explicit "size=X%"
+# option in /etc/fstab.
+ACTION=="online", RUN+="/usr/bin/systemctl --no-block start remount-tmpfs.service"
 LABEL="hotplug_memory_end"
