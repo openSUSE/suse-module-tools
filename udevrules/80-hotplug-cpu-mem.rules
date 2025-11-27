@@ -2,14 +2,19 @@
 # If you need modifications, copy it to /etc/udev/rules.d and edit it there
 
 ACTION!="add", GOTO="hotplug_cpu_end"
-SUBSYSTEM!="cpu|memory", GOTO="hotplug_cpu_end"
+SUBSYSTEM!="cpu", GOTO="hotplug_cpu_end"
 
 #
 # Hotplug physical CPU
 #
-SUBSYSTEM=="cpu", CONST{arch}=="x86-64", TEST=="online", ATTR{online}=="0", ATTR{online}="1"
-SUBSYSTEM=="cpu", CONST{arch}=="s390*", TEST=="online", ATTR{configure}=="1", ATTR{online}=="0", ATTR{online}="1"
+CONST{arch}=="x86-64", TEST=="online", ATTR{online}=="0", ATTR{online}="1"
+CONST{arch}=="s390*", TEST=="online", ATTR{configure}=="1", ATTR{online}=="0", ATTR{online}="1"
+LABEL="hotplug_cpu_end"
 
+#
+# Hotplug physical memory
+#
+SUBSYSTEM!="memory", GOTO="hotplug_memory_end"
 #
 # Hotplug physical memory. Instances of tmpfs are remounted so their
 # size are recalculated. This might be needed if some sizes were
@@ -19,7 +24,7 @@ SUBSYSTEM=="cpu", CONST{arch}=="s390*", TEST=="online", ATTR{configure}=="1", AT
 # lot of shortcomings anyways (tmpfs mounted by other processes, mount
 # namespaces, ...)
 #
-SUBSYSTEM=="memory", CONST{arch}!="s390x", ATTR{state}=="offline", ATTR{state}="online", \
+ACTION=="add", CONST{arch}!="s390x", ATTR{state}=="offline", ATTR{state}="online", \
   RUN+="/usr/bin/systemctl --no-block start remount-tmpfs.service"
 
-LABEL="hotplug_cpu_end"
+LABEL="hotplug_memory_end"
