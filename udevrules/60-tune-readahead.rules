@@ -10,7 +10,7 @@ ACTION!="change", KERNEL=="dm-*", GOTO="readahead_end"
 # --- EDIT BELOW HERE after copying to /etc/udev/rules.d ---
 
 # Set maximum readahead to 1MB
-ATTR{queue/read_ahead_kb}="1024"
+ATTR{queue/read_ahead_kb}!="1024", ATTR{queue/read_ahead_kb}="1024"
 
 # --- EDIT ABOVE HERE after copying to /etc/udev/rules.d ---
 LABEL="readahead_end"

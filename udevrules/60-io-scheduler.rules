@@ -20,9 +20,9 @@ ATTR{queue/scheduler}=="none", GOTO="scheduler_end"
 # keep our hands off zoned devices, the kernel auto-configures them
 ATTR{queue/zoned}!="none", GOTO="scheduler_end"
 # Enforce "none" for multipath components.
-ENV{DM_MULTIPATH_DEVICE_PATH}=="1", ATTR{queue/scheduler}="none", GOTO="scheduler_end"
+ENV{DM_MULTIPATH_DEVICE_PATH}=="1", ATTR{queue/scheduler}!="none", ATTR{queue/scheduler}="none", GOTO="scheduler_end"
 # Enforce "none" for loop devices
-KERNEL=="loop[0-9]*", ATTR{queue/scheduler}="none", GOTO="scheduler_end"
+KERNEL=="loop[0-9]*", ATTR{queue/scheduler}!="none", ATTR{queue/scheduler}="none", GOTO="scheduler_end"
 
 # --- EDIT BELOW HERE after copying to /etc/udev/rules.d ---
 
@@ -35,20 +35,20 @@ KERNEL=="vd[a-z]*", GOTO="scheduler_end"
 KERNEL=="xvd[a-z]*", GOTO="scheduler_end"
 
 # 1. BFQ scheduler for single-queue HDD
-ATTR{queue/rotational}!="0", TEST!="%S%p/mq/1", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
+ATTR{queue/rotational}!="0", TEST!="%S%p/mq/1", ATTR{queue/scheduler}!="bfq", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
 
 # 2. BFQ scheduler for every HDD, including "real" multiqueue
-# ATTR{queue/rotational}!="0", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
+# ATTR{queue/rotational}!="0", ATTR{queue/scheduler}!="bfq", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
 
 # 3. For "real" multiqueue devices, the kernel defaults to no IO scheduling
 # Uncomment this (and select your scheduler) if you need an IO scheduler for them
-# TEST=="%S%p/mq/1", ATTR{queue/scheduler}="kyber", GOTO="scheduler_end"
+# TEST=="%S%p/mq/1", ATTR{queue/scheduler}!="kyber", ATTR{queue/scheduler}="kyber", GOTO="scheduler_end"
 
 # 4. BFQ scheduler for every device (uncomment if you need ionice or blk-cgroup features)
-# ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
+# ATTR{queue/scheduler}!="bfq", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
 
 # 5. mq-deadline is the kernel default for devices with just one hardware queue
-# ATTR{queue/scheduler}="mq-deadline"
+# ATTR{queue/scheduler}!="mq-deadline", ATTR{queue/scheduler}="mq-deadline"
 
 # --- EDIT ABOVE HERE after copying to /etc/udev/rules.d ---
 LABEL="scheduler_end"
