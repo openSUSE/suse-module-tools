@@ -51,6 +51,8 @@
 #
 # files in $tmpdir:
 # krel-$kmp: kernel version for which $kmp was built
+# krel-$kmp-available: exists if the kmp is installed inside the module
+#    directory of the kernel for which it has been built.
 # modules-$kmp: list of modules in $kmp (full paths)
 # basenames-$kmp: list of basenames of modules in $kmp
 # kmps: list of kmps, newest first
@@ -200,7 +202,7 @@ symlink_to_module() {
 __kmp_is_present() {
     local kmp=$1 krel=$2
 
-    if [ $krel = "$(cat $tmpdir/krel-$kmp)" ]; then
+    if [[ $krel = "$(cat $tmpdir/krel-$kmp)" && -e "$tmpdir/krel-$kmp-available" ]]; then
         return 0
     fi
     local module symlink
@@ -389,6 +391,7 @@ check_kmp() {
 	    echo "$0: WARNING: package $kmp contains modules for "
 	    "non-matching kernel $1" >&2
 	fi
+	touch "$tmpdir/krel-$kmp-available"
 	krel=$1
     else
 	[[ "$krel" ]] || return 1
@@ -872,7 +875,7 @@ remove_kmp() {
 		inconsistent=1
 	    fi
 
-            if [ $krel != "$(cat $tmpdir/krel-$kmp)" ]; then
+            if [[ $krel != "$(cat $tmpdir/krel-$kmp)" || ! -e  "$tmpdir/krel-$kmp-available" ]]; then
                 remove_kmp_modules "$kmp" "$krel"
             fi
 
