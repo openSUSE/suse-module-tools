@@ -361,16 +361,34 @@ can_replace_kmp() {
 }
 
 krel_from_nvr() {
-    local nv=${1%-*}
-    local v=${nv##*-}
-    local kver=${v#*_k}
-    local n=${nv%-*}
-    local flavor=${n##*-}
+    local nv v kver n flavor name result
+    nv=${1%-*}
+    v=${nv##*-}
+    kver=${v#*_k}
+    n=${nv%-*}
+    flavor=${n##*-}
+    result=
 
-    [[ "$kver" && "$flavor" ]] || {
-	echo "$0: ERROR: cannot parse kernel version from \"$nvr\"" >&2
-    }
-    echo "${kver//_/-}-$flavor"
+    # classical naming conversion, kernel version is part of KMP version
+    if [[ "$kver" && ("$kver" != "$v") && "$flavor" ]]; then
+	dlog "krel_from_nvr: kver=$kver"
+	result="${kver//_/-}-$flavor"
+    else
+	# "new" naming convention, kernel version is part of KMP name
+	name=${n%-kmp-*}
+	kver=${name##*-k}
+	if [[ "$kver" && "$kver" != "$name" && "$flavor" ]]; then
+	    result="${kver//_/-}-$flavor"
+	fi
+    fi
+    if [[ "$result" && "$result" =~ ^[0-9]\.[0-9]+\.[0-9]+- ]]; then
+	dlog "krel_from_nvr: kver=$result"
+	echo "$result"
+	return 0
+    else
+	echo "$0: ERROR: cannot parse kernel version from \"$nv\"" >&2
+	return 1
+    fi
 }
 
 # Figure out which modules a kmp contains
