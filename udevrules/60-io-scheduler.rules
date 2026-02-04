@@ -35,7 +35,7 @@ KERNEL=="vd[a-z]*", GOTO="scheduler_end"
 KERNEL=="xvd[a-z]*", GOTO="scheduler_end"
 
 # 1. BFQ scheduler for single-queue HDD
-ATTR{queue/rotational}!="0", TEST!="%S%p/mq/1", ATTR{queue/scheduler}!="bfq", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
+# ATTR{queue/rotational}!="0", TEST!="%S%p/mq/1", ATTR{queue/scheduler}!="bfq", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
 
 # 2. BFQ scheduler for every HDD, including "real" multiqueue
 # ATTR{queue/rotational}!="0", ATTR{queue/scheduler}!="bfq", ATTR{queue/scheduler}="bfq", GOTO="scheduler_end"
