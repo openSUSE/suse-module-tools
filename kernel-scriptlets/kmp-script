@@ -51,6 +51,34 @@ run_wm2() {
     $wm2 "$@"
 }
 
+# This is called if %postun is called with $1 = 1.
+#
+# This can happen during update (when the old version is uninstalled)
+# or during "rpm --reinstall". For --reinstall, we shouldn't delete
+# any symlinks in %postun (note that %postun is called after %post).
+# In the update case, rpm -qa will show the other (newer) package, and
+# this one can be safely uninstalled.
+# In the --reinstall case, rpm will list the same package (the one to be
+# uninstalled) twice. The logic below counts packages of the same name,
+# ignoring those with the same version and release as the one being
+# uninstalled. If there are none, it's probably the --reinstall case, and we
+# just exit.
+check_reinstall() {
+    local n_others name nvr pkg
+    name=$1
+    nvr=$2
+    n_others=0
+    while read pkg; do
+	if [[ "$pkg" != "$nvr" ]]; then
+	    : "$((n_others++))"
+	fi
+    done < <(rpm -qa --qf '%{name}-%{version}-%{release}\n' "${name}*")
+    if [[ "$n_others" = 0 ]]; then
+	echo "$0: no other KMPs for $name found, assuming reinstall, see bsc#1257055" >&2
+	exit 0
+    fi
+}
+
 [ -z "$KERNEL_PACKAGE_SCRIPT_DEBUG" ] || \
     echo KMP "$op" name: "$name" version: "$version" release: "$release" \
     kernelrelease: "$kernelrelease" flavor: "$flavor" -- "$@" >&2
@@ -69,6 +97,9 @@ case $op in
 	rpm -ql "$nvr" | sed -n '/\.ko\(\.xz\|\.gz\|\.zst\)\?$/p' > "/run/rpm-$nvr-modules" || script_rc=$?
 	;;
     postun)
+	if [ "$1" = 1 ]; then
+	    check_reinstall "$name" "$nvr"
+	fi
 	mapfile -t modules < "/run/rpm-$nvr-modules"
 	rm -f "/run/rpm-$nvr-modules"
 	if [ ${#modules[*]} = 0 ]; then
