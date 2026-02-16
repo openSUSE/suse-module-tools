@@ -3,10 +3,10 @@
 ##############################################################################
 # How it works:
 # * Kernels install modules below /usr/lib/modules/$krel/kernel/.
-# * KMPs install modules below /usr/lib/modules/$krel/updates/ or .../extra/.
+# * KMPs install modules below /usr/lib/modules/[kmp/]$krel/updates/ or .../extra/.
 # * Symbolic links to modules of compatible KMPs are created under
 #   /usr/lib/modules/$krel/weak-updates/{updates,extra}/... (the original path
-#   below /usr/lib/modules/$other_krel is used).
+#   below /usr/lib/modules/[kmod/]$other_krel is used).
 # * Depmod searches the directories in this order: updates/, extra/,
 #   weak-updates/, kernel/ (see /etd/depmod.conf or
 #   /etc/depmod.d/00-system.conf for details).
@@ -166,9 +166,11 @@ strip_mod_extensions() {
 
 # Name of the symlink that makes a module available to a given kernel
 symlink_to_module() {
-    local module=$1 krel=$2
+    local module=$1 krel=$2 val
 
-    echo /usr/lib/modules/$krel/weak-updates/${module#/usr/lib/modules/*/}
+    val=${module#/usr/lib/modules/}
+    val=${val#kmp/}
+    echo /usr/lib/modules/$krel/weak-updates/${val#*/}
 }
 
 # Is a kmp already present in or linked to from this kernel?
@@ -282,7 +284,7 @@ has_unresolved_symbols() {
 basenames_are_unique() {
     local kmp=$1 krel=$2 basedir=$3 dir
 
-    for dir in $basedir/usr/lib/modules/$krel/{weak-updates,updates,extra}/; do
+    for dir in $basedir/usr/lib/modules{/kmp,}/$krel/{weak-updates,updates,extra}/; do
         if [ ! -d "$dir" ]; then
             continue
         fi
@@ -334,7 +336,7 @@ check_kmp() {
     local kmp=$1
 
     # Make sure all modules are for the same kernel
-    set -- $(sed -re 's:^/usr/lib/modules/([^/]+)/.*:\1:' \
+    set -- $(sed -re 's:^/usr/lib/modules(/kmp)?/([^/]+)/.*:\2:' \
 		 $tmpdir/modules-$kmp \
 	     | sort -u)
     if [ $# -ne 1 ]; then
@@ -346,7 +348,7 @@ check_kmp() {
     dlog "check_kmp: $kmp contains modules for $1"
 
     # Make sure none of the modules are in kernel/ or weak-updates/
-    if grep -qE -e '^/usr/lib/modules/[^/]+/(kernel|weak-updates)/' \
+    if grep -qE -e '^/usr/lib/modules(/kmp)?/[^/]+/(kernel|weak-updates)/' \
 	    $tmpdir/modules-$kmp; then
 	echo "Error: package $kmp must not install modules into " \
 	     "kernel/ or weak-updates/" >&2
@@ -371,7 +373,7 @@ find_kmps() {
 	    continue
 	fi
 	rpm -ql --nodigest --nosignature "$kmp" \
-	    | grep -Ee '^/usr/lib/modules/[^/]+/.+\.ko(\.[gx]z|\.zst)?$' \
+	    | grep -Ee '^/usr/lib/modules(/kmp)?/[^/]+/.+\.ko(\.[gx]z|\.zst)?$' \
 	    > $tmpdir/modules-$kmp
 	if [ $? != 0 ]; then
 	    echo "WARNING: $kmp does not contain any kernel modules" >&2
