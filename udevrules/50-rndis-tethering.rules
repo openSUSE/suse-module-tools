@@ -1,0 +1,9 @@
+# /usr/lib/udev/rules.d/50-rndis-tethering.rules
+# Copyright (c) 2026 SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+# Detect RNDIS USB interfaces (Class e0, SubClass 01, Protocol 03)
+# and execute rndis_host modprobe if ALLOW_INSECURE_RNDIS="yes" in sysconfig.
+# If "no", the helper script will log a warning to kmsg/dmesg instead.
+
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTRS{bInterfaceClass}=="e0", ATTRS{bInterfaceSubClass}=="01", ATTRS{bInterfaceProtocol}=="03", PROGRAM="/usr/lib/module-init-tools/rndis-tethering-check", RESULT=="yes", RUN+="/sbin/modprobe rndis_host"
