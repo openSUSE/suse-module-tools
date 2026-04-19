@@ -1,0 +1,24 @@
+#!/bin/bash
+# Copyright (c) 2026 SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Helper script to check if insecure RNDIS tethering is allowed via sysconfig.
+
+CONFIG_FILE="/etc/sysconfig/suse-module-tools"
+ALLOW="no"
+
+if [ -f "$CONFIG_FILE" ]; then
+    # Source the config file to get the variable
+    . "$CONFIG_FILE"
+    ALLOW="$ALLOW_INSECURE_RNDIS"
+fi
+
+if [ "$ALLOW" = "yes" ]; then
+    echo "yes"
+    exit 0
+else
+    # Log a helpful message to the kernel ring buffer so users can find it in dmesg
+    logger -p kern.warning -t "suse-module-tools" "RNDIS USB tethering detected but disabled for security. To enable, set ALLOW_INSECURE_RNDIS=\"yes\" in YaST Sysconfig Editor (or edit $CONFIG_FILE directly)."
+    echo "no"
+    exit 0
+fi
