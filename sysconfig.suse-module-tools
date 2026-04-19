@@ -1,0 +1,10 @@
+## Path:           Hardware/USB Tethering
+## Description:    Allow insecure RNDIS USB Tethering protocol
+## Type:           yesno
+## Default:        no
+#
+# Allow loading the insecure RNDIS protocol for Android USB Tethering.
+# RNDIS is considered insecure (bsc#1205767), but many Android phones 
+# only support this protocol for USB tethering.
+# Set to "yes" to automatically load rndis_host when a phone is plugged in.
+ALLOW_INSECURE_RNDIS="no"
