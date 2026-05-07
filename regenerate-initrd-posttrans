@@ -46,11 +46,11 @@ if ! test -d "$dir"; then
 	exit 0
 fi
 
-# If we are inside a transaction and using a separate /boot/efi
-# partition (ESP) then we cannot touch it, as we will escape the
-# atomicity promise.  We need to delay the call to this script after
-# the transaction has been completed.  The component that will call
-# again regenerate-initrd-posttrans to generate the new initrd is the
+# If we are inside a transaction and using a separate ESP partition
+# then we cannot touch it, as we will escape the atomicity promise.
+# We need to delay the call to this script after the transaction has
+# been completed.  The component that will call again
+# regenerate-initrd-posttrans to generate the new initrd is the
 # sdbootutil snapper plugin (this time outside the live transaction),
 # and the tukit plugin will migrate the signal from inside the
 # transaction to outside.
