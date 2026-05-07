@@ -80,6 +80,28 @@ modules that you know you'll use on a regular basis, and just enable them
 temporarily otherwise.
 
 
+## Other blacklisted modules
+
+Some kernel modules that are not file systems are also blacklisted by default
+because they are considered insecure (e.g. RNDIS drivers, bsc#1205767,
+jsc#PED-5731). The same un-blacklisting mechanism applies: running
+`modprobe $MODULE` in a terminal will trigger an interactive prompt offering
+to permanently un-blacklist the module.
+
+For example, to enable USB tethering with Android devices that use the RNDIS
+protocol:
+
+    # modprobe rndis_host
+    unblacklist: loading module rndis_host
+    unblacklist: Do you want to un-blacklist rndis_host permanently (<y>es/<n>o/n<e>ver)? y
+    unblacklist: rndis_host un-blacklisted by creating /etc/modprobe.d/50-blacklist-rndis.conf
+
+Answering **y** creates a symlink to `/dev/null`, permanently enabling the module
+across reboots and package upgrades. Answering **never** creates an override file
+that keeps the module blacklisted even if the vendor file is modified in future
+package updates.
+
+
 ## Weak modules
 
 This package contains the script `weak-modules2` which is necessary to make

@@ -1,5 +1,5 @@
 #! /bin/sh
-# Copyright (c) 2021-2024 SUSE LLC
+# Copyright (c) 2021-2025 SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 ME="${0##*/}"
@@ -19,20 +19,49 @@ if [ $UID -ne 0 ]; then
     exit 1
 fi
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $ME module" >&2
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+    echo "Usage: $ME module [config-basename]" >&2
     exit 1
 fi
 
 MODULE=$1
-if [ -z "$MODULE" ] || \
-       [ ! -f /lib/modprobe.d/60-blacklist_fs-"$MODULE".conf -a \
-	 ! -f /usr/lib/modprobe.d/60-blacklist_fs-"$MODULE".conf ]; then
+
+# Determine which vendor config file covers this module, and set CONF to
+# the corresponding override path in /etc/modprobe.d/.
+#
+# Two calling conventions are supported:
+#
+#   unblacklist MODULE
+#     Used by filesystem blacklists (60-blacklist_fs-MODULE.conf) and
+#     non-filesystem blacklists that follow the 60-blacklist-MODULE.conf
+#     naming convention.  The vendor file is located by pattern.
+#
+#   unblacklist MODULE CONFIG-BASENAME
+#     Used when the vendor filename does not encode the module name
+#     (e.g. 50-blacklist-rndis.conf for rndis_host).  The basename is
+#     supplied explicitly by the install directive in the vendor file so
+#     that the correct /etc/ override is created.
+#
+CONF=""
+if [ -n "${2:-}" ]; then
+    # Explicit config basename supplied by the install directive.
+    # Validate that the referenced vendor file actually exists to guard
+    # against typos in install directives.
+    if [ -f "/usr/lib/modprobe.d/$2.conf" ]; then
+        CONF="/etc/modprobe.d/$2.conf"
+    else
+        echo "$ME: vendor file /usr/lib/modprobe.d/$2.conf not found" >&2
+        exit 1
+    fi
+elif [ -f "/usr/lib/modprobe.d/60-blacklist_fs-$MODULE.conf" ]; then
+    CONF="/etc/modprobe.d/60-blacklist_fs-$MODULE.conf"
+elif [ -f "/usr/lib/modprobe.d/60-blacklist-$MODULE.conf" ]; then
+    CONF="/etc/modprobe.d/60-blacklist-$MODULE.conf"
+else
     echo "$ME: Invalid or unknown module \"$MODULE\"" >&2
     exit 1
 fi
 
-CONF=/etc/modprobe.d/60-blacklist_fs-"$MODULE".conf
 if [ -L "$CONF" ]; then
     if [ x"$(readlink -f "$CONF")" = x/dev/null ]; then
 	# already linked to /dev/null
@@ -42,7 +71,7 @@ if [ -L "$CONF" ]; then
 	exit 1
     fi
 elif [ -f "$CONF" ]; then
-    if ! grep -E -q "^[ 	]*blacklist[ 	]+$MODULE" "$CONF"; then
+    if ! grep -E -q "^[[:space:]]*blacklist[[:space:]]+$MODULE" "$CONF"; then
 	# not blacklisted
 	exit 0
     fi
@@ -55,7 +84,7 @@ elif [ -e "$CONF" ]; then
     exit 1
 fi
 
-echo "$ME: loading $MODULE file system module" >&2
+echo "$ME: loading module $MODULE" >&2
 _a=
 while [ -z "$_a" ]; do
     echo -n "$ME: Do you want to un-blacklist $MODULE permanently (<y>es/<n>o/n<e>ver)? " >&2
