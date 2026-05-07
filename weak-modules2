@@ -480,7 +480,9 @@ get_current_initrd() {
     if [ -n "$SDBOOTUTIL" ]; then
 	if [ -z "$TRANSACTIONAL_UPDATE" ] && [ -s '/etc/kernel/entry-token' ]; then
 	    read -r _ initrd <<<"$(sdbootutil --entry-keys=initrd show-entry $krel)"
-	    initrd="/boot/efi$initrd"
+	    # The initrd can be in the ESP (/boot/efi, /boot) or in
+	    # the XBOOTLDR (/boot), depending on the installation
+	    initrd="$(bootctl --print-boot-path)$initrd"
 	fi
     fi
     echo "$initrd"
