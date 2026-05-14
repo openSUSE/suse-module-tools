@@ -190,7 +190,12 @@ symlink_to_module() {
 	dirname=${dirname%/*}
     done
     if [[ "$is_kdir" ]]; then
-	echo "$prefix/$krel/weak-updates/${module#$dirname/}"
+	# Special case: non-symlink (old-style KMP being removed)
+	if [[ "${module#$dirname/}" =~ ^updates/ ]]; then
+	    echo "$module"
+	else
+	    echo "$prefix/$krel/weak-updates/${module#$dirname/}"
+	fi
     elif [[ "${module%/*}" == */updates ]]; then
 	echo "$prefix/$krel/weak-updates/updates/${module##*/}"
     else
@@ -462,6 +467,52 @@ find_kmps() {
     dlog "find_kmps: kmps found: " $(cat $tmpdir/kmps)
 }
 
+# Find possible classical-style predecessor KMPs
+find_old_kmps() {
+    local basename=$1 flavor=$2
+    local kmp kv
+
+    # Only proceed if this is a new-style KMP
+    kv=${basename##*-}
+    [[ $kv =~ ^k[1-9][0-9]*\.[0-9]+\.[0-9]+_ ]] || return
+
+    basename=${basename%-*}
+    for kmp in $(rpm -qa --qf '%{n}-%{v}-%{r}\n' --nodigest --nosignature "$basename-kmp-$flavor"); do
+	dlog "find_old_kmps: looking at $kmp"
+	if rpm -q --qf '[%{providename}\n]' --nodigest --nosignature "$kmp" | \
+	    grep -q '^kmp_in_kernel$'; then
+	    # KMP built directly from the kernel spec file (fate#319339)
+	    continue
+	fi
+	rpm -ql --nodigest --nosignature "$kmp" \
+	    | grep -Ee '^/[^/]+/.+\.ko(\.[gx]z|\.zst)?$' \
+	    > $tmpdir/modules-$kmp
+	if [ $? != 0 ]; then
+	    echo "WARNING: $kmp does not contain any kernel modules" >&2
+	    rm -f $tmpdir/modules-$kmp
+	    continue
+	fi
+
+	check_kmp $kmp || return 1
+    done
+
+    echo "$kmp" >>$tmpdir/kmps
+    dlog "find_old_kmps: kmps found: " $(cat $tmpdir/kmps)
+}
+
+old_kmp_name() {
+    local kmp name mod
+
+    # strip version and release
+    kmp=${1%-*-*}
+    name=${kmp%-kmp-*}
+    mod=${name%-*}
+    # If these are equal, kmp was "old" already
+    [[ "$mod" != "$name" ]] || return
+    # concatenate module basename with -kmp-* suffix
+    echo "$mod${kmp:${#name}}"
+}
+
 # Whether a given KMP can be installed is checked in can_replace_kmp(),
 # which should actually have been called can_install_kmp().
 # One test is basenames_are_unique(). This test would always fail
@@ -491,16 +542,37 @@ find_kmps() {
 __previous_version_of_kmp() {
     local new_kmp=$1 krel=$2
     local module symlink old_kmp
-    
+    local base
+    local prefix=/usr/lib/modules
+    local is_oldstyle
+
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
 	[ "$symlink" ] || continue
-	[ -e "$symlink" ] || continue
-	[ -L "$symlink" ] || return
+	if [[ -e "$symlink" ]]; then
+	    [[ -L "$symlink" ]] || return
+	elif [[ "$symlink" = "$prefix/$krel/weak-updates/${module##*/}" ]]; then
+	    # special case for new-style KMPs: search for old-style KMP
+	    # symlink is not necessarily a symlink now!
+	    base=${module##*/}
+	    symlink=$(find "$prefix/$krel/weak-updates" "$prefix/$krel/updates" -name "$base" -print -quit)
+	    [[ $symlink ]] || continue
+	    dlog "__previous_version_of_kmp: found old-style module $symlink"
+	    is_oldstyle=yes
+	fi
 
-	old_kmp=$(grep -l "$(readlink "$symlink")" $tmpdir/modules-* | sed 's:.*/modules-::' ) || return
-	# The package %NAME must be the same
-	[ "${old_kmp%-*-*}" == "${new_kmp%-*-*}" ] || return
+	old_kmp=$(grep -l "$(readlink -f "$symlink")" $tmpdir/modules-* | sed 's:.*/modules-::' ) || return
+	# The package %NAME must be the same ...
+	if [[ ! $is_oldstyle && "${old_kmp%-*-*}" != "${new_kmp%-*-*}" ]]; then
+	    return
+	elif [[ $is_oldstyle ]]; then
+	    # ... except if a new-style KMP is replacing an old-style one
+	    [[ "${old_kmp%-*-*}" = "$(old_kmp_name "$new_kmp")" ]] || return
+	    # we found an old-style kmp while installing a new one,
+	    # skip the "older" test below
+	    dlog "__previous_version_of_kmp: found old-style KMP $old_kmp"
+	    break
+	fi
 	# The other kmp must be older
 	while read kmp; do
 	    [ "$kmp" == "$old_kmp" ] && return
@@ -814,6 +886,7 @@ add_kmp() {
 
     # Find the kmp to be added as well as any previous versions
     find_kmps "$basename" "$flavor" || return 1
+    find_old_kmps "$basename" "$flavor"
 
     local dir krel status
     for dir in /usr/lib/modules/*; do
