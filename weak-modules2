@@ -555,7 +555,8 @@ __previous_version_of_kmp() {
 	    # special case for new-style KMPs: search for old-style KMP
 	    # symlink is not necessarily a symlink now!
 	    base=${module##*/}
-	    symlink=$(find "$prefix/$krel/weak-updates" "$prefix/$krel/updates" -name "$base" -print -quit)
+	    symlink=$(find "$prefix/$krel/weak-updates" "$prefix/$krel/updates" \
+			   -name "$base" -print -quit 2>/dev/null)
 	    [[ $symlink ]] || continue
 	    dlog "__previous_version_of_kmp: found old-style module $symlink"
 	    is_oldstyle=yes
