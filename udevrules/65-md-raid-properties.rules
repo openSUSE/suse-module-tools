@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (c) 2026 SUSE LLC
+#
+# Always set serialize_policy to 1 for MD RAID1 arrays if possible.
+# Otherwise, simultaneous writes to a single file can cause data
+# inconsistencies (bsc#1261555).
+# This setting has a performance impact for workloads with a large
+# number of collisions (direct IO writes to the same block) and small block
+# sizes.
+SUBSYSTEM!="block", GOTO="md_props_end"
+KERNEL!="md*", GOTO="md_props_end"
+# It's probably enough to do this on "change" events only, but be on the safe side.
+ACTION!="add|change", GOTO="md_props_end"
+
+# The serialize_policy may be "n/a" before array initialization, in which case we can't write it
+# Only write "1" if the current value is "0".
+TEST=="md/serialize_policy", ATTR{md/serialize_policy}=="0", ATTR{md/serialize_policy}="1"
+
+LABEL="md_props_end"
