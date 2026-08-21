@@ -72,6 +72,13 @@ for f in "$dir"/*; do
 	break
 done
 
+# If sdbootutil is present but no bootloader is installed in the ESP,
+# do not try to generate an initrd via dracut.
+if [ -z "$is_sdbootutil" ] && [ -e "/usr/bin/sdbootutil" ]; then
+	echo "${0##*/}: no bootloader installed, not regenerating the initrd." >&2
+	exit 0
+fi
+
 err=0
 work_done=
 
