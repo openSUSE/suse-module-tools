@@ -474,22 +474,44 @@ dropindirs_sort() {
     }
 }
 
+# Print the initrd that kernel $krel is currently using.  Return 1 if
+# the initrd is missing, and 2 if the boot configuration cannot be
+# read, in which case rebuilding the initrd would not help.
 get_current_initrd() {
     local krel=$1
     local initrd="/boot/initrd-$krel"
+    local entry boot_path
+
     if [ -n "$SDBOOTUTIL" ]; then
 	if [ -z "$TRANSACTIONAL_UPDATE" ] && [ -s '/etc/kernel/entry-token' ]; then
-	    read -r _ initrd <<<"$(sdbootutil --entry-keys=initrd show-entry $krel)"
+	    entry=$("$SDBOOTUTIL" --entry-keys=initrd show-entry "$krel") || {
+		log "WARNING: no boot entry for kernel $krel"
+		return 2
+	    }
+	    read -r _ initrd <<<"$entry"
+	    [ -n "$initrd" ] || {
+		log "WARNING: no initrd in the boot entry of kernel $krel"
+		return 1
+	    }
 	    # The initrd can be in the ESP (/boot/efi, /boot) or in
 	    # the XBOOTLDR (/boot), depending on the installation
-	    initrd="$(bootctl --print-boot-path)$initrd"
+	    boot_path=$(bootctl --print-boot-path) || {
+		log "WARNING: cannot determine the boot path"
+		return 2
+	    }
+	    initrd="$boot_path$initrd"
+	    [ -e "$initrd" ] || {
+		log "WARNING: initrd $initrd of kernel $krel is missing"
+		return 1
+	    }
 	fi
     fi
     echo "$initrd"
 }
 
 get_current_basenames() {
-    local initrd=$(get_current_initrd $1)
+    local initrd
+    initrd=$(get_current_initrd "$1") || return $?
     $LSINITRD "$initrd" |
 	sed -rn 's:.*\<usr/lib/modules/.*/::p' |
 	strip_mod_extensions
@@ -583,8 +605,19 @@ as soon as your system is complete." >&2
 	dlog "needs_initrd: yes, kernel package"
 	return 0
     fi
-    local initrd="$(get_current_initrd $krel)"
-    if [ -z "$SDBOOTUTIL" ] && [ ! -e "$initrd" ]; then
+    local initrd
+    initrd="$(get_current_initrd "$krel")"
+    case $? in
+	1)
+	    dlog "needs_initrd: yes, the current initrd cannot be found"
+	    return 0
+	    ;;
+	2)
+	    dlog "needs_initrd: no, the boot configuration cannot be read"
+	    return 1
+	    ;;
+    esac
+    if [ ! -e "$initrd" ]; then
 	dlog "needs_initrd: yes, initrd doesn't exist yet"
 	return 0
     fi
@@ -628,7 +661,8 @@ run_depmod_build_initrd() {
 		if [ -n "$SDBOOTUTIL" ] && [ -z "$TRANSACTIONAL_UPDATE" ]; then
 		    doit "$SDBOOTUTIL" --no-reuse-initrd add-kernel "$krel"
 		elif [ -z "$SDBOOTUTIL" ]; then
-		    local initrd="$(get_current_initrd $krel)"
+		    local initrd
+		    initrd="$(get_current_initrd "$krel")" || return 1
 		    case "$INITRD_GENERATOR" in
 			"dracut")
 			    doit "$DRACUT" -f "$initrd" $krel
