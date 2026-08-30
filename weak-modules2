@@ -337,9 +337,8 @@ check_kmp() {
     set -- $(sed -re 's:^/usr/lib/modules/([^/]+)/.*:\1:' \
 		 $tmpdir/modules-$kmp \
 	     | sort -u)
-    if [ $# -ne 1 ]; then
-	echo "Error: package $kmp seems to contain modules for multiple" \
-	     "kernel versions" >&2
+    if [ $# -gt 1 ]; then
+	echo "Error: package $kmp seems to contain modules for multiple kernel versions" >&2
 	return 1
     fi
     echo $1 > $tmpdir/krel-$kmp
@@ -348,8 +347,7 @@ check_kmp() {
     # Make sure none of the modules are in kernel/ or weak-updates/
     if grep -qE -e '^/usr/lib/modules/[^/]+/(kernel|weak-updates)/' \
 	    $tmpdir/modules-$kmp; then
-	echo "Error: package $kmp must not install modules into " \
-	     "kernel/ or weak-updates/" >&2
+	echo "Error: package $kmp must not install modules into kernel/ or weak-updates/" >&2
 	return 1
     fi
     sed -e 's:.*/::' $tmpdir/modules-$kmp \
@@ -363,7 +361,7 @@ find_kmps() {
     local basename=$1 flavor=$2
     local kmp
 
-    for kmp in $(rpm -qa --qf '%{n}-%{v}-%{r}\n' --nodigest --nosignature "$basename-kmp-$flavor"); do
+    for kmp in $(rpm -qa --qf '%{n}-%{v}-%{r}\n' --nodigest --nosignature "$basename-kmp-$flavor*"); do
 	dlog "find_kmps: looking at $kmp"
 	if rpm -q --qf '[%{providename}\n]' --nodigest --nosignature "$kmp" | \
 	    grep -q '^kmp_in_kernel$'; then
