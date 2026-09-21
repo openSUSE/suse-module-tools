@@ -3,10 +3,10 @@
 ##############################################################################
 # How it works:
 # * Kernels install modules below /lib/modules/$krel/kernel/.
-# * KMPs install modules below /lib/modules/$krel/updates/ or .../extra/.
+# * KMPs install modules below /lib/modules/[kmp/]$krel/updates/ or .../extra/.
 # * Symbolic links to modules of compatible KMPs are created under
 #   /lib/modules/$krel/weak-updates/{updates,extra}/... (the original path
-#   below /lib/modules/$other_krel is used).
+#   below /lib/modules/[kmod/]$other_krel is used).
 # * Depmod searches the directories in this order: updates/, extra/,
 #   weak-updates/, kernel/ (see /etd/depmod.conf or
 #   /etc/depmod.d/00-system.conf for details).
@@ -121,9 +121,11 @@ strip_mod_extensions() {
 
 # Name of the symlink that makes a module available to a given kernel
 symlink_to_module() {
-    local module=$1 krel=$2
+    local module=$1 krel=$2 val
 
-    echo /lib/modules/$krel/weak-updates/${module#/lib/modules/*/}
+    val=${module#/lib/modules/}
+    val=${val#kmp/}
+    echo /lib/modules/$krel/weak-updates/${val#*/}
 }
 
 # Is a kmp already present in or linked to from this kernel?
@@ -281,7 +283,7 @@ check_kmp() {
     local kmp=$1
 
     # Make sure all modules are for the same kernel
-    set -- $(sed -re 's:^/lib/modules/([^/]+)/.*:\1:' \
+    set -- $(sed -re 's:^/lib/modules(/kmp)?/([^/]+)/.*:\2:' \
 		 $tmpdir/modules-$kmp \
 	     | sort -u)
     if [ $# -ne 1 ]; then
@@ -293,7 +295,7 @@ check_kmp() {
     dlog "check_kmp: $kmp contains modules for $1"
 
     # Make sure none of the modules are in kernel/ or weak-updates/
-    if grep -qE -e '^/lib/modules/[^/]+/(kernel|weak-updates)/' \
+    if grep -qE -e '^/lib/modules(/kmp)?/[^/]+/(kernel|weak-updates)/' \
 	    $tmpdir/modules-$kmp; then
 	echo "Error: package $kmp must not install modules into " \
 	     "kernel/ or weak-updates/" >&2
@@ -318,7 +320,7 @@ find_kmps() {
 	    continue
 	fi
 	rpm -ql --nodigest --nosignature "$kmp" \
-	    | sed -nr 's:^(/usr)?(/lib/modules/[^/]+/.+\.ko)(\.[gx]z|\.zst)?$:\2\3:p' \
+	    | sed -nr 's:^(/usr)?(/lib/modules(/kmp)?/[^/]+/.+\.ko)(\.[gx]z|\.zst)?$:\2\4:p' \
 	    > $tmpdir/modules-$kmp
 	if [ $? != 0 ]; then
 	    echo "WARNING: $kmp does not contain any kernel modules" >&2
@@ -337,13 +339,25 @@ find_kmps() {
     dlog "find_kmps: kmps found: " $(cat $tmpdir/kmps)
 }
 
+other_symlinks() {
+    local module=$1 krel=$2 filename
+    filename=${module#/lib/module}
+    filename=${filename#/kmp}
+    filename=${filename#/*/updates/*/}
+    find /lib/modules/$krel/weak-updates/*/ -name "${filename%.ko*}.ko*" -printf "%p "
+}
+
 __previous_version_of_kmp() {
     local new_kmp=$1 krel=$2
     local module symlink old_kmp
     
     while read module; do
 	symlink=$(symlink_to_module $module $krel)
-	[ -e "$symlink" ] || continue
+	[ -e "$symlink" ] || {
+	    symlink=($(other_symlinks $module $krel))
+	    [ ${#symlink[*]} -gt 0 ] || continue
+	    [ ${#symlink[*]} -eq 1 ] || { echo "Error: Module ${module##*/} exists more than once for kernel $krel!"; }
+	}
 	[ -L "$symlink" ] || return
 
 	old_kmp=$(grep -l "$(readlink "$symlink")" $tmpdir/modules-* | sed 's:.*/modules-::' ) || return
