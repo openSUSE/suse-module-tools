@@ -526,6 +526,15 @@ get_current_initrd() {
     echo "$initrd"
 }
 
+# Check if kernel $1 comes from a UKI of the distribution (UKI="yes"
+# in /etc/sysconfig/bootloader).  Its initrd is part of the signed
+# UKI, so it cannot get new modules
+boots_distro_uki() {
+    [ -n "$SDBOOTUTIL" ] && [ -z "$TRANSACTIONAL_UPDATE" ] || return 1
+    [ "$(. /etc/sysconfig/bootloader 2>/dev/null && echo "$UKI")" = "yes" ] || return 1
+    "$SDBOOTUTIL" --entry-keys=uki show-entry "$1" 2>/dev/null | grep -q '^uki'
+}
+
 get_current_basenames() {
     local initrd
     initrd=$(get_current_initrd "$1") || return $?
@@ -611,6 +620,10 @@ as soon as your system is complete." >&2
     # this variable
     if test -n "$KMP_NEEDS_MKINITRD" && \
 		! test "$KMP_NEEDS_MKINITRD" -eq 0 2>/dev/null; then
+	if boots_distro_uki "$krel"; then
+	    log "WARNING: kernel $krel boots the UKI of the distribution, its initrd cannot be rebuilt"
+	    return 1
+	fi
 	dlog "needs_initrd: yes, KMP_NEEDS_MKINITRD=$KMP_NEEDS_MKINITRD"
 	return 0
     fi
@@ -644,6 +657,10 @@ as soon as your system is complete." >&2
 	            <(printf '%s\n' "${initrd_basenames[@]}") ))
     log "changed initrd modules for kernel $krel: ${i[@]-none}"
     if [ ${#i[@]} -gt 0 ]; then
+	if boots_distro_uki "$krel"; then
+	    log "WARNING: kernel $krel boots the UKI of the distribution, its initrd cannot get the changed modules: ${i[*]}"
+	    return 1
+	fi
 	dlog "needs_initrd: yes, modules changed"
 	return 0
     fi
