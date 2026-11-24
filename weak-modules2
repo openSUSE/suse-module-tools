@@ -484,12 +484,20 @@ get_current_initrd() {
 
     if [ -n "$SDBOOTUTIL" ]; then
 	if [ -z "$TRANSACTIONAL_UPDATE" ] && [ -s '/etc/kernel/entry-token' ]; then
-	    entry=$("$SDBOOTUTIL" --entry-keys=initrd show-entry "$krel") || {
+	    entry=$("$SDBOOTUTIL" --entry-keys=initrd,uki show-entry "$krel") || {
 		log "WARNING: no boot entry for kernel $krel"
 		return 2
 	    }
-	    read -r _ initrd <<<"$entry"
-	    [ -n "$initrd" ] || {
+	    # The entry has an initrd, or a UKI with the initrd inside
+	    local key value uki=
+	    initrd=
+	    while read -r key value; do
+		case "$key" in
+		    initrd) [ -n "$initrd" ] || initrd=$value ;;
+		    uki) uki=$value ;;
+		esac
+	    done <<<"$entry"
+	    [ -n "$initrd" ] || [ -n "$uki" ] || {
 		log "WARNING: no initrd in the boot entry of kernel $krel"
 		return 1
 	    }
@@ -499,14 +507,32 @@ get_current_initrd() {
 		log "WARNING: cannot determine the boot path"
 		return 2
 	    }
-	    initrd="$boot_path$initrd"
-	    [ -e "$initrd" ] || {
-		log "WARNING: initrd $initrd of kernel $krel is missing"
-		return 1
-	    }
+	    if [ -n "$uki" ]; then
+		uki="$boot_path$uki"
+		initrd="$tmpdir/initrd-$krel"
+		objcopy -O binary --only-section=.initrd "$uki" "$initrd" 2>/dev/null && [ -s "$initrd" ] || {
+		    log "WARNING: cannot read the initrd of the UKI $uki of kernel $krel"
+		    return 1
+		}
+	    else
+		initrd="$boot_path$initrd"
+		[ -e "$initrd" ] || {
+		    log "WARNING: initrd $initrd of kernel $krel is missing"
+		    return 1
+		}
+	    fi
 	fi
     fi
     echo "$initrd"
+}
+
+# Check if kernel $1 comes from a UKI of the distribution (UKI="yes"
+# in /etc/sysconfig/bootloader).  Its initrd is part of the signed
+# UKI, so it cannot get new modules
+boots_distro_uki() {
+    [ -n "$SDBOOTUTIL" ] && [ -z "$TRANSACTIONAL_UPDATE" ] || return 1
+    [ "$(. /etc/sysconfig/bootloader 2>/dev/null && echo "$UKI")" = "yes" ] || return 1
+    "$SDBOOTUTIL" --entry-keys=uki show-entry "$1" 2>/dev/null | grep -q '^uki'
 }
 
 get_current_basenames() {
@@ -594,6 +620,10 @@ as soon as your system is complete." >&2
     # this variable
     if test -n "$KMP_NEEDS_MKINITRD" && \
 		! test "$KMP_NEEDS_MKINITRD" -eq 0 2>/dev/null; then
+	if boots_distro_uki "$krel"; then
+	    log "WARNING: kernel $krel boots the UKI of the distribution, its initrd cannot be rebuilt"
+	    return 1
+	fi
 	dlog "needs_initrd: yes, KMP_NEEDS_MKINITRD=$KMP_NEEDS_MKINITRD"
 	return 0
     fi
@@ -627,6 +657,10 @@ as soon as your system is complete." >&2
 	            <(printf '%s\n' "${initrd_basenames[@]}") ))
     log "changed initrd modules for kernel $krel: ${i[@]-none}"
     if [ ${#i[@]} -gt 0 ]; then
+	if boots_distro_uki "$krel"; then
+	    log "WARNING: kernel $krel boots the UKI of the distribution, its initrd cannot get the changed modules: ${i[*]}"
+	    return 1
+	fi
 	dlog "needs_initrd: yes, modules changed"
 	return 0
     fi
